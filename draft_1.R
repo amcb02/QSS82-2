@@ -1003,3 +1003,29 @@ gg_difference <- plot_half_rink(ggplot(pass_value2%>%filter(one_timer==T))) +
   rink_overlay(gg_difference)
 }
 
+#plot passes through middle of ice
+{
+  gg_through_middle <- plot_half_rink(ggplot(pass_value2%>%filter(through_middle==T, x2<189)%>%  mutate_at(c('through_middle','one_timer_pass'), ~ replace_na(., F))%>%select(x,y,x2,y2,one_timer_pass,through_middle))) +
+     geom_segment(
+    aes(
+      x = x,
+      xend = x2,
+      y = y,
+      yend = y2,
+      color = one_timer_pass
+    ),
+    size = 0.15,
+    lineend = "round",
+    linejoin = "bevel",
+    arrow = arrow(length = unit(0.2, 'cm'))
+  ) +
+  scale_color_manual(values = c("lightgreen", "#FF0061"))+
+  labs(color = "One-Timer Pass") +
+  ggtitle("Passes through the middle line of the ice")+
+  annotate("segment", x = 125, xend = 200, y = 42.5, yend = 42.5, linetype = "dashed", color='yellow', size= 1.5) #Middle Line
+
+    rink_overlay(gg_through_middle)
+}
+
+
+
