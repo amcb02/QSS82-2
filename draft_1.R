@@ -616,7 +616,7 @@ passes_to_house <- shots_passes%>%
   filter(house_pass == T)
 
 #rename columns
-colnames(pass_value2)[51:53] <-
+colnames(pass_value2)[52:54] <-
   c("prev_all_shot_pct", "prev_x_group", "prev_y_group")
 }
 
@@ -985,7 +985,7 @@ gg_delta_shot_pct<- plot_half_rink(ggplot(delta_shot_pct)) +
 
 #difference in shot pct at shot location and shot pct at pass origin location
 {
-gg_difference <- plot_half_rink(ggplot(pass_value2 %>% filter(one_timer == T))) +
+gg_difference <- plot_half_rink(ggplot(pass_value2%>%filter(one_timer==T))) +
   geom_tile(
     aes(
       x = x_group.x,
@@ -995,8 +995,8 @@ gg_difference <- plot_half_rink(ggplot(pass_value2 %>% filter(one_timer == T))) 
       fill = delta_shot_pct_prev_shot_pct
     )
   ) +
-  labs(fill = "Shot Percentage Difference (%)") +
-  ggtitle("Difference in Shot % of One-Timer from area and Shot % from Pass Area") +
+  labs(fill = "Shot Percentage\nDifference (%)") +
+  ggtitle("Difference in Shot % of One-Timer\nfrom Shot area and Shot % from Pass Area") +
   scale_fill_gradientn(limits = c(-.2, .2),
                        colors = c("lightblue", "white", "red"),
                        labels = percent)  
