@@ -430,7 +430,7 @@ table(games$event)%>% prop.table()
 
 source("Coordinates.R")
 games2 <- right_join(games, points, by = c("coord_id"))
-passes_coord_id <- games%>%
+passes_coord_id <- games2%>%
   mutate(one_timer_pass = ifelse(lead(one_timer) == T, T, F))
 
 passes_coord_id <- right_join(passes_coord_id, points, by = c("coord_id_2" = "coord_id"))%>%
@@ -487,10 +487,10 @@ coord_shot_pct <- games3 %>%
   summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))
 
 
-#Mean Shot Pct by shot type
+#Mean Shot Pct by shot type and whether or not shot is a one timer
 mean_shot_type_pct <- games3 %>%
   filter(event == "shot" | event == "goal") %>%
-  group_by(detail_1) %>%
+  group_by(detail_1, one_timer) %>%
   summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))
 
 ##Shot percentage by coordinate and shot type
@@ -499,6 +499,14 @@ shot_type_pct <- games3 %>%
   group_by(coord_id, detail_1) %>%
   summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))%>%
   pivot_wider(values_from = shot_pct, names_from = detail_1)%>%
+  mutate_all(~ replace_na(., 0))
+
+##Shot percentage by coordinate,shot type, and one timer
+shot_type_pct_2 <- games3 %>%
+  filter(event == "shot" | event == "goal") %>%
+  group_by(coord_id, detail_1, one_timer) %>%
+  summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))%>%
+  pivot_wider(values_from = shot_pct, names_from = c(detail_1, one_timer))%>%
   mutate_all(~ replace_na(., 0))
 
 #all goals and shots from offensive zone (remove 2 goals scored from neutral zone)
@@ -1002,4 +1010,30 @@ gg_difference <- plot_half_rink(ggplot(pass_value2%>%filter(one_timer==T))) +
                        labels = percent)  
   rink_overlay(gg_difference)
 }
+
+#plot passes through middle of ice
+{
+  gg_through_middle <- plot_half_rink(ggplot(pass_value2%>%filter(through_middle==T, x2<189)%>%  mutate_at(c('through_middle','one_timer_pass'), ~ replace_na(., F))%>%select(x,y,x2,y2,one_timer_pass,through_middle))) +
+     geom_segment(
+    aes(
+      x = x,
+      xend = x2,
+      y = y,
+      yend = y2,
+      color = one_timer_pass
+    ),
+    size = 0.15,
+    lineend = "round",
+    linejoin = "bevel",
+    arrow = arrow(length = unit(0.2, 'cm'))
+  ) +
+  scale_color_manual(values = c("lightgreen", "#FF0061"))+
+  labs(color = "One-Timer Pass") +
+  ggtitle("Passes through the middle line of the ice")+
+  annotate("segment", x = 125, xend = 200, y = 42.5, yend = 42.5, linetype = "dashed", color='yellow', size= 1.5) #Middle Line
+
+    rink_overlay(gg_through_middle)
+}
+
+
 
