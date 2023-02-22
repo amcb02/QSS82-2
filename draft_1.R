@@ -658,12 +658,13 @@ shots_passes <- cbind(pass_value2, house_shot_df, house_pass_df)
            one_timer, one_timer_pass, quick_shot, quick_pass, house_shot, house_pass, behind_net_pass, behind_net_shot)
     filter(one_timer_pass == F & quick_pass == T & behind_net_pass == T & house_pass == T)
   #one_timer quick_shot house_pass behind_net
+    {
   T_T_T_T <- test_df%>%
         filter((one_timer == T | one_timer_pass == T), (house_pass == T | house_shot == T), (behind_net_pass == T | behind_net_shot == T))
 
   T_T_T_F <- test_df%>%
     filter((one_timer == T | one_timer_pass == T), (house_pass == T | house_shot == T), (behind_net_pass == F & behind_net_shot == F))
-  
+
   T_T_F_T <- test_df%>%
         filter((one_timer == T | one_timer_pass == T), (house_pass == F & house_shot == F), (behind_net_pass == T | behind_net_shot == T))
 
@@ -677,9 +678,46 @@ shots_passes <- cbind(pass_value2, house_shot_df, house_pass_df)
       filter((one_timer == F & one_timer_pass == F), (quick_pass == T | quick_shot == T), (house_pass == T | house_shot == T), (behind_net_pass == F & behind_net_shot == F))
   
   F_T_F_T <- test_df%>%
-      filter((one_timer == F & one_timer_pass == F), (quick_pass == T | quick_shot == T), (house_pass == F & house_shot == T), (behind_net_pass == T | behind_net_shot == T))
+      filter((one_timer == F & one_timer_pass == F), (quick_pass == T | quick_shot == T), (house_pass == F & house_shot == F), (behind_net_pass == T | behind_net_shot == T))
   
+  F_T_F_F <- test_df%>%
+      filter((one_timer == F & one_timer_pass == F), (quick_pass == T | quick_shot == T), (house_pass == F & house_shot == F), (behind_net_pass == F & behind_net_shot == F))
 
+  F_F_T_T <- test_df%>%
+      filter((one_timer == F & one_timer_pass == F), (quick_pass == F & quick_shot == F), (house_pass == T | house_shot == T), (behind_net_pass == T | behind_net_shot == T))
+  
+  F_F_T_F <- test_df%>%
+      filter((one_timer == F & one_timer_pass == F), (quick_pass == F & quick_shot == F), (house_pass == T | house_shot == T), (behind_net_pass == F & behind_net_shot == F))
+ 
+ F_F_F_T <- test_df%>%
+     filter((one_timer == F & one_timer_pass == F), (quick_pass == F & quick_shot == F), (house_pass == F & house_shot == F), (behind_net_pass == T | behind_net_shot == T))
+ 
+  F_F_F_F <- test_df%>%
+      filter((one_timer == F & one_timer_pass == F), (quick_pass == F & quick_shot == F), (house_pass == F & house_shot == F), (behind_net_pass == F & behind_net_shot == F))
+    }
+  
+  #function to find shot_pct of each possible combination
+  combo_fn <- function(x){
+    y<- x%>%
+    filter(event == "shot" | event == "goal")%>%
+    summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T)))) 
+    return(y)
+  }
+
+  combo_fn(T_T_T_T)
+  combo_fn(T_T_T_F)
+  combo_fn(T_T_F_T)
+  combo_fn(T_T_F_F)
+  combo_fn(F_T_T_T)
+  combo_fn(F_T_T_F)
+  combo_fn(F_T_F_T)
+  combo_fn(F_T_F_F)
+  combo_fn(F_F_T_T)
+  combo_fn(F_F_T_T)
+  combo_fn(F_F_T_F)
+  combo_fn(F_F_F_T)
+  combo_fn(F_F_F_F)
+    
 }
 
 
