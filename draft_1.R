@@ -655,8 +655,10 @@ shots_passes <- cbind(pass_value2, house_shot_df, house_pass_df)
   test_df <- shots_passes%>%
     select(event, detail_1, detail_2, traffic,  x, y, x2, y2, coord_id, coord_id_2,
            prev_coord_id, prev_x_group, prev_y_group, goal, shot_pct, prev_all_shot_pct,
-           one_timer, one_timer_pass, quick_shot, quick_pass, house_shot, house_pass, behind_net_pass, behind_net_shot)
-    filter(one_timer_pass == F & quick_pass == T & behind_net_pass == T & house_pass == T)
+           one_timer, one_timer_pass, quick_shot, quick_pass, house_shot, house_pass,
+           behind_net_pass, behind_net_shot, team, player, player_2, home_skaters, away_skaters,
+           dist, league, goal_dist, shot_angle, x_group.x, y_group.x)
+
   #one_timer quick_shot house_pass behind_net
     {
   T_T_T_T <- test_df%>%
@@ -719,7 +721,6 @@ shots_passes <- cbind(pass_value2, house_shot_df, house_pass_df)
   combo_fn(F_F_F_F)
     
 }
-
 
 
 #grouped_diff = (shot_pct for given coord_id of one_timer) - (shot_pct for given coord_id of non-one_timer)
