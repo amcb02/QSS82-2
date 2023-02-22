@@ -40,11 +40,13 @@
 }
 
 #source functions
+{
 source("plot_rink.R")
 source("plot_half_rink.R")
 source("functions.R")
 source("rink_overlay.R")
 source("upper_outline.R")
+}
 
 #Reformatting, cleaning, and data combination
 {
@@ -415,6 +417,10 @@ games <-
   full_join(combined_data_2,
             final_game,
             by = c("gameID", "date", "home_team", "away_team"))
+
+#remove previous & un-needed data.frames to clear space
+rm(combined_data, combined_data_2, combined_data_recode, final_game, first_play,
+   olympic_data, olympic_data_recode, num, oly_num, phf_2021, womens)
 }
 
 distinct(games, home_team) #missing "SWZ" in home_team, so add them to factor to use later
@@ -437,14 +443,14 @@ passes_coord_id <- right_join(passes_coord_id, points, by = c("coord_id_2" = "co
   mutate_at(c("one_timer_pass"), ~ replace_na(., F))
 
 passes_coord_id <- plyr::rename(passes_coord_id,
-                                replace = c("x_group" = "receiving_x_group",  
-                                            "y_group" = "receiving_y_group"))
+                                replace = c("x_group.x" = "receiving_x_group",  
+                                            "y_group.x" = "receiving_y_group"))
 
-games3 <- games2 %>%
+games3 <- games2%>%
   mutate(one_timer_pass = ifelse(lead(one_timer) == T, T, F))%>%
-  group_by(coord_id) %>%
-  mutate(goal = event == "goal") %>%
+  mutate(goal = event == "goal")%>%
   mutate_at(c('traffic', 'one_timer'), ~ replace_na(., F))
+
 
   
 #COUNTS OF PASSES
@@ -481,6 +487,7 @@ bad_pass <- passes %>%
 count(bad_pass)
   }
 
+#shot percentage by coordinate id
 coord_shot_pct <- games3 %>%
   filter(event == "shot" | event == "goal") %>%
   group_by(coord_id) %>%
@@ -523,7 +530,7 @@ median_shot_pct <- offensive_events %>%
   summarize(id_shot_pct = mean(shot_pct)) 
 
 #all one-timers
-one_timers <- games3 %>%
+one_timers <- offensive_events %>%
   filter(one_timer == T) %>%
   mutate(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))%>%
   mutate(fill = as.factor(shot_pct))
@@ -566,8 +573,7 @@ delta_shot_pct %>%
   theme(plot.title = element_text(face = "bold", size = 14, hjust = 0.5))
 
 pass_value <- games3 %>%
-  filter(event == "shot" |
-           event == "goal" | event == "complete_pass") %>%
+  filter(event == "shot" | event == "goal" | event == "complete_pass") %>%
   group_by(coord_id) %>%
   mutate(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T)))) %>% #shot pct by coord id
   ungroup() %>%
@@ -579,7 +585,7 @@ pass_value <- games3 %>%
 pass_value2 <-
   right_join(
     pass_value,
-    delta_shot_pct %>% select(coord_id, all_shot_pct, x_group, y_group),
+    delta_shot_pct%>% select(coord_id, x_group, y_group, all_shot_pct),
     by = c('prev_coord_id' = 'coord_id')
   ) %>%
   group_by(event) %>%
@@ -599,12 +605,33 @@ pass_value2 <-
   ) %>%
   ungroup() %>%
   mutate(one_timer_pass = ifelse(lead(one_timer) == T, T, F))%>%
-  mutate(through_middle = case_when( 
+  mutate(through_middle = case_when( #find whether or not pass went through center line of ice
     y >=42.5 & y2 <= 42.5 ~ T,
     y2 >=42.5 & y <= 42.5 ~ T,
     T ~ F
-  )) #find whether or not pass went through center line of ice
-  the_house <- data.frame(x = c(189, 189, 169, 154, 154, 169), xend = c(189, 169, 154, 154, 169, 189), y = c(39.5, 45.5, 64.5, 64.5, 20.5, 20.5), yend = c(45.5, 64.5, 64.5, 20.5, 20.5, 39.5)) #create df of the house polygon
+  ))%>% 
+    mutate(behind_net = case_when(
+      x >= 189 & x2 < 189 & x2 < 125 ~ T,
+      T ~ F
+    ))%>%
+    mutate(period_seconds = minutes*60 + seconds)%>%
+    mutate(quick_shot = case_when(
+      (event == "shot" | event == "goal") & lag(event == "complete_pass") &
+        (period_seconds - lag(period_seconds)) <=3 & (lag(player_2) == player) ~ T,
+      T ~ F
+    ))
+      
+  
+  #rename columns
+colnames(pass_value2)[52:54] <-
+  c("prev_x_group", "prev_y_group", "prev_all_shot_pct")
+
+  #create df of the house polygon
+  the_house <- data.frame(x = c(189, 189, 169, 154, 154, 169),
+                          xend = c(189, 169, 154, 154, 169, 189),
+                          y = c(39.5, 45.5, 64.5, 64.5, 20.5, 20.5),
+                          yend = c(45.5, 64.5, 64.5, 20.5, 20.5, 39.5)) 
+  
 house_shot_df <- pass_value2%>%
   select(x,y)
 house_shot_df <- house_shot_df%>%
@@ -615,7 +642,7 @@ house_pass_df <- pass_value2%>%
   mutate_all(~replace_na(., 0))
 colnames(house_pass_df) <- c('x','y')
 house_pass_df <- house_pass_df%>%
-  mutate(house_pass = 1:dim(pass_value2)[1] %in% inpip(house_pass_df, the_house, bound= TRUE))%>%
+  mutate(house_pass = 1:dim(pass_value2)[1] %in% inpip(house_pass_df, the_house))%>%
   select(house_pass) #find whether x2, y2 coordinates are in the house
 
 shots_passes <- cbind(pass_value2, house_shot_df, house_pass_df)
@@ -623,9 +650,7 @@ shots_passes <- cbind(pass_value2, house_shot_df, house_pass_df)
 passes_to_house <- shots_passes%>%
   filter(house_pass == T)
 
-#rename columns
-colnames(pass_value2)[52:54] <-
-  c("prev_all_shot_pct", "prev_x_group", "prev_y_group")
+
 }
 
 #find difference between shot pct at current location and shot pct at previous location
@@ -653,12 +678,6 @@ pass_value3 <- right_join(pass_value2, x, by=c('coord_id'))%>%
                       norm_pass_dist * (delta_shot_pct_prev_shot_pct + grouped_diff),
                                           ))
 
-#pass value by player
-player_pass_value <- pass_value3%>%
-  ungroup()%>%
-  group_by(player)%>%
-  summarize(player_value = as.numeric(mean(value)))
-
 #find primary assists for each player
 assists <- pass_value2%>%
   filter(lead(event) == "goal")%>%
@@ -676,9 +695,7 @@ behind_net_passes <- passes_coord_id%>%
          x>=189,
          x2>=125,
          x2<189,
-         )%>%
-  mutate(avg_pass_area_x = mean(x2),
-         avg_pass_area_y = mean(y2))
+         )
 
 #find total passes completed in each coord_id 
 y<- behind_net_passes%>%
