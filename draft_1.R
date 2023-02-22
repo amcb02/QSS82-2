@@ -610,17 +610,18 @@ pass_value2 <-
     y2 >=42.5 & y <= 42.5 ~ T,
     T ~ F
   ))%>% 
-    mutate(behind_net = case_when(
-      x >= 189 & x2 < 189 & x2 < 125 ~ T,
+    mutate(behind_net_pass = case_when(
+      x >= 189 & x2 < 189 & x2 >= 125 ~ T,
       T ~ F
     ))%>%
+    mutate(behind_net_shot = ifelse(lag(behind_net_pass) == T, T, F))%>%
     mutate(period_seconds = minutes*60 + seconds)%>%
     mutate(quick_shot = case_when(
       (event == "shot" | event == "goal") & lag(event == "complete_pass") &
-        (period_seconds - lag(period_seconds)) <=3 & (lag(player_2) == player) ~ T,
+        (period_seconds - lag(period_seconds)) <= 3 & (lag(player_2) == player) ~ T,
       T ~ F
-    ))
-      
+    ))%>%
+    mutate(quick_pass = ifelse(lead(quick_shot) == T, T, F))
   
   #rename columns
 colnames(pass_value2)[52:54] <-
@@ -632,6 +633,10 @@ colnames(pass_value2)[52:54] <-
                           y = c(39.5, 45.5, 64.5, 64.5, 20.5, 20.5),
                           yend = c(45.5, 64.5, 64.5, 20.5, 20.5, 39.5)) 
   
+  #find difference between shot pct at current location and shot pct at previous location
+pass_value2$delta_shot_pct_prev_shot_pct <-
+  pass_value2$shot_pct - pass_value2$prev_all_shot_pct
+
 house_shot_df <- pass_value2%>%
   select(x,y)
 house_shot_df <- house_shot_df%>%
@@ -647,15 +652,37 @@ house_pass_df <- house_pass_df%>%
 
 shots_passes <- cbind(pass_value2, house_shot_df, house_pass_df)
 
-passes_to_house <- shots_passes%>%
-  filter(house_pass == T)
+  test_df <- shots_passes%>%
+    select(event, detail_1, detail_2, traffic,  x, y, x2, y2, coord_id, coord_id_2,
+           prev_coord_id, prev_x_group, prev_y_group, goal, shot_pct, prev_all_shot_pct,
+           one_timer, one_timer_pass, quick_shot, quick_pass, house_shot, house_pass, behind_net_pass, behind_net_shot)
+    filter(one_timer_pass == F & quick_pass == T & behind_net_pass == T & house_pass == T)
+  #one_timer quick_shot house_pass behind_net
+  T_T_T_T <- test_df%>%
+        filter((one_timer == T | one_timer_pass == T), (house_pass == T | house_shot == T), (behind_net_pass == T | behind_net_shot == T))
 
+  T_T_T_F <- test_df%>%
+    filter((one_timer == T | one_timer_pass == T), (house_pass == T | house_shot == T), (behind_net_pass == F & behind_net_shot == F))
+  
+  T_T_F_T <- test_df%>%
+        filter((one_timer == T | one_timer_pass == T), (house_pass == F & house_shot == F), (behind_net_pass == T | behind_net_shot == T))
+
+  T_T_F_F <- test_df%>%
+        filter((one_timer == T | one_timer_pass == T), (house_pass == F | house_shot == F), (behind_net_pass == F & behind_net_shot == F))
+
+  F_T_T_T <- test_df%>%
+        filter((one_timer == F & one_timer_pass == F), (quick_pass == T | quick_shot == T), (house_pass == T | house_shot == T), (behind_net_pass == T | behind_net_shot == T))
+  
+  F_T_T_F <- test_df%>%
+      filter((one_timer == F & one_timer_pass == F), (quick_pass == T | quick_shot == T), (house_pass == T | house_shot == T), (behind_net_pass == F & behind_net_shot == F))
+  
+  F_T_F_T <- test_df%>%
+      filter((one_timer == F & one_timer_pass == F), (quick_pass == T | quick_shot == T), (house_pass == F & house_shot == T), (behind_net_pass == T | behind_net_shot == T))
+  
 
 }
 
-#find difference between shot pct at current location and shot pct at previous location
-pass_value2$delta_shot_pct_prev_shot_pct <-
-  pass_value2$shot_pct - pass_value2$prev_all_shot_pct
+
 
 #grouped_diff = (shot_pct for given coord_id of one_timer) - (shot_pct for given coord_id of non-one_timer)
 x<- pass_value2%>%
