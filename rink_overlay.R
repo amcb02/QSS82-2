@@ -92,7 +92,8 @@ rink_overlay <- function(p_object){
     annotate("segment", x = 154, xend = 154, y = 64.5, yend = 20.5, linetype = "dashed", color='blue')+ #Top of top Faceoff Circle to Top of bottom Faceoff Circle
     annotate("segment", x = 154, xend = 169, y = 20.5, yend = 20.5, linetype = "dashed", color='blue')+ #Top of Bottom Faceoff Circle to Bottom Faceoff Dot
     annotate("segment", x = 169, xend = 189, y = 20.5, yend = 39.5, linetype = "dashed", color='blue')+ #Bottom Faceoff Dot to goal
-  theme_minimal() +
+    annotate("segment", x  =125, xend = 200, y = 42.5, yend = 42.5, linetype = "dashed", color='#22ded0')+ #midline
+    theme_minimal() +
   theme(
     axis.title = element_blank(),
     axis.ticks  = element_blank(),

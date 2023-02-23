@@ -454,7 +454,9 @@ house_pass_df <- house_pass_df%>%
   mutate(house_pass = 1:dim(offensive_events)[1] %in% inpip(house_pass_df, the_house))%>%
   select(house_pass) #find whether x2, y2 coordinates are in the house
 
-shots_passes <- cbind(offensive_events, house_shot_df, house_pass_df)%>%
+shots_passes <- cbind(offensive_events, house_shot_df, house_pass_df)
+
+shots_by_house <- shots_passes%>%
   group_by(house_shot)%>%
   mutate(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100) 
 
@@ -491,7 +493,7 @@ table(non_house_events$shot_pct)%>%prop.table
         filter((one_timer == T | one_timer_pass == T), (house_pass == F & house_shot == F), (behind_net_pass == T | behind_net_shot == T))
 
   T_F_F <- shots_passes%>%
-        filter((one_timer == T | one_timer_pass == T), (house_pass == F | house_shot == F), (behind_net_pass == F & behind_net_shot == F))
+        filter((one_timer == T | one_timer_pass == T), (house_pass == F & house_shot == F), (behind_net_pass == F & behind_net_shot == F))
 
   F_T_T <- shots_passes%>%
       filter((one_timer == F & one_timer_pass == F), (house_pass == T | house_shot == T), (behind_net_pass == T | behind_net_shot == T))
@@ -542,12 +544,13 @@ table(non_house_events$shot_pct)%>%prop.table
   dimnames = list(c("one_timer", "non_one_timer"),
                   c("behind_net", "not_behind_net"))))
 
-gg_behind_net_plays <- plot_half_rink(ggplot()) +
+#behind_net == T, house == T, through_middle = T&F
+gg_behind_house_plays <- plot_half_rink(ggplot()) +
    geom_segment(data = shots_passes %>% 
                  filter(event == "complete_pass" & house_pass == T & behind_net_pass == T),
                aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
                alpha = 0.3,
-               size = 0.6,
+               linewidth = 0.6,
                lineend = "round",
                linejoin = "bevel",
                arrow = arrow(length = unit(0.15, 'cm'))
@@ -564,5 +567,155 @@ gg_behind_net_plays <- plot_half_rink(ggplot()) +
                       labels = c("Non-One-Timer Pass", "Goal", "Shot", "One-Timer Pass")) +
   ggtitle("All Passes From Behind the Net to 'The House'")
 
-  rink_overlay(gg_behind_net_plays)
+  rink_overlay(gg_behind_house_plays)
   
+  #behind_net == T, house == F, through_middle = T&F
+  gg_behind_no_house_plays <- plot_half_rink(ggplot()) +
+   geom_segment(data = shots_passes %>% 
+                 filter(event == "complete_pass" & house_pass == F & behind_net_pass == T),
+               aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
+               alpha = 0.3,
+               size = 0.6,
+               lineend = "round",
+               linejoin = "bevel",
+               arrow = arrow(length = unit(0.15, 'cm'))
+  ) +
+  geom_point(data=shots_passes %>% 
+               filter((event == "goal" | event == "shot") & house_shot == F & behind_net_shot == T), 
+             aes(x = x, y = y, color = event),
+             size = 0.7) + 
+  scale_color_manual(name = "Type of Event", 
+                      values = c(goal = "#FF0061", 
+                                 shot = "green", 
+                                 `TRUE` = 'orange', 
+                                 `FALSE`  = "blue"),
+                      labels = c("Non-One-Timer Pass", "Goal", "Shot", "One-Timer Pass")) +
+  ggtitle("All Passes From Behind the Net to outside 'The House'")
+  
+    rink_overlay(gg_behind_no_house_plays)
+
+   #behind_net == T, house == T, through_middle = T
+  gg_behind_house_middle_plays <- plot_half_rink(ggplot()) +
+   geom_segment(data = shots_passes %>% 
+                 filter(event == "complete_pass" & house_pass == T & behind_net_pass == T & through_middle_pass == T),
+               aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
+               alpha = 0.3,
+               size = 0.6,
+               lineend = "round",
+               linejoin = "bevel",
+               arrow = arrow(length = unit(0.15, 'cm'))
+  ) +
+  geom_point(data=shots_passes %>% 
+               filter((event == "goal" | event == "shot") & house_shot == T & behind_net_shot == T & through_middle_shot == T), 
+             aes(x = x, y = y, color = event),
+             size = 0.7) + 
+  scale_color_manual(name = "Type of Event", 
+                      values = c(goal = "#FF0061", 
+                                 shot = "green", 
+                                 `TRUE` = 'orange', 
+                                 `FALSE`  = "blue"),
+                      labels = c("Non-One-Timer Pass", "Goal", "Shot", "One-Timer Pass")) +
+  ggtitle("All Passes From Behind the Net to 'The House'\nwith all passes through midline")
+  
+    rink_overlay(gg_behind_house_middle_plays)
+
+  #behind_net == F, house == T, through_middle = T
+  gg_no_behind_house_middle_plays <- plot_half_rink(ggplot()) +
+   geom_segment(data = shots_passes %>% 
+                 filter(event == "complete_pass" & house_pass == T & behind_net_pass == F & through_middle_pass == T),
+               aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
+               alpha = 0.3,
+               size = 0.6,
+               lineend = "round",
+               linejoin = "bevel",
+               arrow = arrow(length = unit(0.15, 'cm'))
+  ) +
+  geom_point(data=shots_passes %>% 
+               filter((event == "goal" | event == "shot") & house_shot == T & behind_net_shot == F & through_middle_shot == T), 
+             aes(x = x, y = y, color = event),
+             size = 0.7) + 
+  scale_color_manual(name = "Type of Event", 
+                      values = c(goal = "#FF0061", 
+                                 shot = "green", 
+                                 `TRUE` = 'orange', 
+                                 `FALSE`  = "blue"),
+                      labels = c("Non-One-Timer Pass", "Goal", "Shot", "One-Timer Pass")) +
+  ggtitle("All Passes From not Behind the Net to 'The House'\nwith all passes through midline")
+  
+    rink_overlay(gg_no_behind_house_middle_plays)
+
+      #behind_net == F, house == F, through_middle = T
+  gg_no_behind_no_house_middle_plays <- plot_half_rink(ggplot()) +
+   geom_segment(data = shots_passes %>% 
+                 filter(event == "complete_pass" & house_pass == F & behind_net_pass == F & through_middle_pass == T),
+               aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
+               alpha = 0.15,
+               size = 0.6,
+               lineend = "round",
+               linejoin = "bevel",
+               arrow = arrow(length = unit(0.15, 'cm'))
+  ) +
+  geom_point(data=shots_passes %>% 
+               filter((event == "goal" | event == "shot") & house_shot == F & behind_net_shot == F & through_middle_shot == T), 
+             aes(x = x, y = y, color = event),
+             size = 0.7) + 
+  scale_color_manual(name = "Type of Event", 
+                      values = c(goal = "#FF0061", 
+                                 shot = "green", 
+                                 `TRUE` = 'orange', 
+                                 `FALSE`  = "blue"),
+                      labels = c("Non-One-Timer Pass", "Goal", "Shot", "One-Timer Pass")) +
+  ggtitle("All Passes From not Behind the Net\nto outside 'The House'\nwith all passes through midline")
+  
+    rink_overlay(gg_no_behind_no_house_middle_plays)
+    
+  #behind_net == F, house == F, through_middle = F
+  gg_no_behind_no_house_no_middle_plays <- plot_half_rink(ggplot()) +
+   geom_segment(data = shots_passes %>% 
+                 filter(event == "complete_pass" & house_pass == F & behind_net_pass == F & through_middle_pass == F),
+               aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
+               alpha = 0.1,
+               size = 0.6,
+               lineend = "round",
+               linejoin = "bevel",
+               arrow = arrow(length = unit(0.15, 'cm'))
+  ) +
+  geom_point(data=shots_passes %>% 
+               filter((event == "goal" | event == "shot") & house_shot == F & behind_net_shot == F & through_middle_shot == F), 
+             aes(x = x, y = y, color = event),
+             size = 0.7) + 
+  scale_color_manual(name = "Type of Event", 
+                      values = c(goal = "#FF0061", 
+                                 shot = "green", 
+                                 `TRUE` = 'orange', 
+                                 `FALSE`  = "blue"),
+                      labels = c("Non-One-Timer Pass", "Goal", "Shot", "One-Timer Pass")) +
+  ggtitle("All Passes From not Behind the Net\nto outside 'The House'\nwith all passes not through midline")
+  
+    rink_overlay(gg_no_behind_no_house_no_middle_plays)
+
+      #behind_net == F, house == T, through_middle = F
+  gg_no_behind_house_no_middle_plays <- plot_half_rink(ggplot()) +
+   geom_segment(data = shots_passes %>% 
+                 filter(event == "complete_pass" & house_pass == T & behind_net_pass == F & through_middle_pass == F),
+               aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
+               alpha = 0.3,
+               size = 0.6,
+               lineend = "round",
+               linejoin = "bevel",
+               arrow = arrow(length = unit(0.15, 'cm'))
+  ) +
+  geom_point(data=shots_passes %>% 
+               filter((event == "goal" | event == "shot") & house_shot == T & behind_net_shot == F & through_middle_shot == F), 
+             aes(x = x, y = y, color = event),
+             size = 0.7) + 
+  scale_color_manual(name = "Type of Event", 
+                      values = c(goal = "#FF0061", 
+                                 shot = "green", 
+                                 `TRUE` = 'orange', 
+                                 `FALSE`  = "blue"),
+                      labels = c("Non-One-Timer Pass", "Goal", "Shot", "One-Timer Pass")) +
+  ggtitle("All Passes From not Behind the Net to 'The House'\nwith all passes not through midline")
+  
+    rink_overlay(gg_no_behind_house_no_middle_plays)
+
