@@ -461,7 +461,6 @@ shots_by_house <- shots_passes%>%
   mutate(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100) 
 
 house_events <- shots_passes%>%
-  select(-shot_pct)%>%
   filter(house_shot == T | house_pass == T)%>%
   group_by(behind_net_shot, one_timer, through_middle_shot)%>%
   mutate(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)%>%
@@ -471,7 +470,6 @@ house_events <- shots_passes%>%
 table(house_events$shot_pct)%>%prop.table
 
 non_house_events <- shots_passes%>%
-  select(-shot_pct)%>%
   filter(house_shot == F & house_pass == F)%>%
   group_by(behind_net_shot, one_timer, through_middle_shot)%>%
   mutate(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)%>%
@@ -575,7 +573,7 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
                  filter(event == "complete_pass" & house_pass == F & behind_net_pass == T),
                aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
                alpha = 0.3,
-               size = 0.6,
+               linewidth = 0.6,
                lineend = "round",
                linejoin = "bevel",
                arrow = arrow(length = unit(0.15, 'cm'))
@@ -600,7 +598,7 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
                  filter(event == "complete_pass" & house_pass == T & behind_net_pass == T & through_middle_pass == T),
                aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
                alpha = 0.3,
-               size = 0.6,
+               linewidth = 0.6,
                lineend = "round",
                linejoin = "bevel",
                arrow = arrow(length = unit(0.15, 'cm'))
@@ -625,7 +623,7 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
                  filter(event == "complete_pass" & house_pass == T & behind_net_pass == F & through_middle_pass == T),
                aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
                alpha = 0.3,
-               size = 0.6,
+               linewidth = 0.6,
                lineend = "round",
                linejoin = "bevel",
                arrow = arrow(length = unit(0.15, 'cm'))
@@ -650,7 +648,7 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
                  filter(event == "complete_pass" & house_pass == F & behind_net_pass == F & through_middle_pass == T),
                aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
                alpha = 0.15,
-               size = 0.6,
+               linewidth = 0.6,
                lineend = "round",
                linejoin = "bevel",
                arrow = arrow(length = unit(0.15, 'cm'))
@@ -675,7 +673,7 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
                  filter(event == "complete_pass" & house_pass == F & behind_net_pass == F & through_middle_pass == F),
                aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
                alpha = 0.1,
-               size = 0.6,
+               linewidth = 0.6,
                lineend = "round",
                linejoin = "bevel",
                arrow = arrow(length = unit(0.15, 'cm'))
@@ -700,7 +698,7 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
                  filter(event == "complete_pass" & house_pass == T & behind_net_pass == F & through_middle_pass == F),
                aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
                alpha = 0.3,
-               size = 0.6,
+               linewidth = 0.6,
                lineend = "round",
                linejoin = "bevel",
                arrow = arrow(length = unit(0.15, 'cm'))
