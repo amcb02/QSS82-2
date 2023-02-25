@@ -461,21 +461,30 @@ shots_by_house <- shots_passes%>%
   mutate(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100) 
 
 house_events <- shots_passes%>%
-  filter(house_shot == T | house_pass == T)%>%
+  filter(house_shot == T | house_pass == T,
+         detail_1 != "Fan",
+         detail_1 != "Wrap Around")%>%
   group_by(behind_net_shot, one_timer, through_middle_shot)%>%
   mutate(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)%>%
   ungroup()%>%
   mutate(avg_shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
 
+house_glm <- glm(goal ~ behind_net_shot + one_timer + through_middle_shot + goal_dist + shot_angle + detail_1 + traffic, data = house_events, family = 'binomial')
+summary(house_glm)
+
 table(house_events$shot_pct)%>%prop.table
 
 non_house_events <- shots_passes%>%
-  filter(house_shot == F & house_pass == F)%>%
+  filter(house_shot == F & house_pass == F,
+         detail_1 != "Fan",
+         detail_1 != "Wrap Around")%>%
   group_by(behind_net_shot, one_timer, through_middle_shot)%>%
   mutate(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)%>%
    ungroup()%>%
   mutate(avg_shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
 
+non_house_glm <- glm(goal ~ behind_net_shot  + one_timer + through_middle_shot +  goal_dist + shot_angle + detail_1 + traffic, data = non_house_events, family = 'binomial')
+summary(non_house_glm)
 
 table(non_house_events$shot_pct)%>%prop.table
 
@@ -716,4 +725,3 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
   ggtitle("All Passes From not Behind the Net to 'The House'\nwith all passes not through midline")
   
     rink_overlay(gg_no_behind_house_no_middle_plays)
-
