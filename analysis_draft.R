@@ -697,8 +697,8 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
    geom_segment(data = shots_passes %>% 
                  filter(event == "complete_pass" & house_pass == T & behind_net_pass == F & through_middle_pass == F),
                aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
-               alpha = 0.3,
-               linewidth = 0.6,
+               alpha = 0.25,
+               linewidth = 0.5,
                lineend = "round",
                linejoin = "bevel",
                arrow = arrow(length = unit(0.15, 'cm'))
@@ -706,7 +706,7 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
   geom_point(data=shots_passes %>% 
                filter((event == "goal" | event == "shot") & house_shot == T & behind_net_shot == F & through_middle_shot == F), 
              aes(x = x, y = y, color = event),
-             size = 0.7) + 
+             size = 0.3, alpha = 0.8) + 
   scale_color_manual(name = "Type of Event", 
                       values = c(goal = "#FF0061", 
                                  shot = "green", 
