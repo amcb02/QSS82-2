@@ -415,7 +415,7 @@ final_game <- combined_data_2 %>%
 
 #join final_game data (final play of each game and its winner) to full dataset
 games <- full_join(combined_data_2, final_game, by = c("gameID", "date", "home_team", "away_team"))%>%
-  mutate(one_timer_pass = ifelse(lead(one_timer) == T, T, F))%>%
+  mutate(one_timer_pass = ifelse((lead(event) == "shot" | lead(event) == "goal") & lead(one_timer) == T, T, F))%>%
   mutate(goal = event == "goal")%>%
   mutate_at(c('traffic', 'one_timer', 'one_timer_pass'), ~ replace_na(., F))
 
@@ -428,18 +428,20 @@ offensive_events <- games%>%
   filter(event == "goal" | event == "shot" | event == "complete_pass",
          x>=125,
          x2>=125 | is.na(x2) == T
-  )%>%
+  )%>% #x2 only !NA for passes, x2 == NA for goals and shots
   mutate(through_middle_pass = case_when( #find whether or not pass went through center line of ice
     (event == "complete_pass" & y >=42.5 & y2 <= 42.5 & x2 <189) ~ T,
     (event == "complete_pass" & y2 >=42.5 & y <= 42.5 & x2 <189) ~ T,
     T ~ F
   ))%>% 
-  mutate(through_middle_shot = ifelse(lag(through_middle_pass) == T, T, F))%>%
+  mutate(through_middle_shot = ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" &  lag(through_middle_pass) == T, T, F))%>%
   mutate(behind_net_pass = case_when(
       (event == "complete_pass" & x >= 189 & x2 < 189 & x2 >= 125) ~ T,
       T ~ F
     ))%>%
-  mutate(behind_net_shot = ifelse(lag(behind_net_pass) == T, T, F))
+  mutate(behind_net_shot = ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(behind_net_pass) == T, T, F))%>%
+  mutate(period_seconds = minutes*60 + seconds)%>%
+  mutate(shot_after_pass = ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(period_seconds) - period_seconds <= 2, T, F))
 
 house_shot_df <- offensive_events%>%
   select(x, y)
@@ -458,17 +460,24 @@ shots_passes <- cbind(offensive_events, house_shot_df, house_pass_df)
 
 shots_by_house <- shots_passes%>%
   group_by(house_shot)%>%
-  mutate(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100) 
+  summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100) 
 
 house_events <- shots_passes%>%
   filter(house_shot == T | house_pass == T,
          detail_1 != "Fan",
          detail_1 != "Wrap Around")%>%
-  group_by(behind_net_shot, one_timer, through_middle_shot)%>%
+  group_by(behind_net_shot, one_timer, through_middle_shot, shot_after_pass)%>%
   mutate(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)%>%
   ungroup()%>%
   mutate(avg_shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
 
+house_events_summary <- shots_passes%>%
+  filter(house_shot == T | house_pass == T,
+         detail_1 != "Fan",
+         detail_1 != "Wrap Around")%>%
+  group_by(behind_net_shot, one_timer, through_middle_shot, shot_after_pass)%>%
+  summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
+  
 house_glm <- glm(goal ~ behind_net_shot + one_timer + through_middle_shot + goal_dist + shot_angle + detail_1 + traffic, data = house_events, family = 'binomial')
 summary(house_glm)
 
@@ -483,6 +492,13 @@ non_house_events <- shots_passes%>%
    ungroup()%>%
   mutate(avg_shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
 
+non_house_events_summary <- shots_passes%>%
+  filter(house_shot == F & house_pass == F,
+         detail_1 != "Fan",
+         detail_1 != "Wrap Around")%>%
+  group_by(behind_net_shot, one_timer, through_middle_shot)%>%
+  summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
+  
 non_house_glm <- glm(goal ~ behind_net_shot  + one_timer + through_middle_shot +  goal_dist + shot_angle + detail_1 + traffic, data = non_house_events, family = 'binomial')
 summary(non_house_glm)
 
@@ -579,7 +595,7 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
   #behind_net == T, house == F, through_middle = T&F
   gg_behind_no_house_plays <- plot_half_rink(ggplot()) +
    geom_segment(data = shots_passes %>% 
-                 filter(event == "complete_pass" & house_pass == F & behind_net_pass == T),
+                 filter(event == "complete_pass" & house_pass == F & behind_net_pass == T & through_middle_pass == T),
                aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
                alpha = 0.3,
                linewidth = 0.6,
@@ -588,7 +604,7 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
                arrow = arrow(length = unit(0.15, 'cm'))
   ) +
   geom_point(data=shots_passes %>% 
-               filter((event == "goal" | event == "shot") & house_shot == F & behind_net_shot == T), 
+               filter((event == "goal" | event == "shot") & house_shot == F & behind_net_shot == T & through_middle_shot == T), 
              aes(x = x, y = y, color = event),
              size = 0.7) + 
   scale_color_manual(name = "Type of Event", 
@@ -679,7 +695,8 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
   #behind_net == F, house == F, through_middle = F
   gg_no_behind_no_house_no_middle_plays <- plot_half_rink(ggplot()) +
    geom_segment(data = shots_passes %>% 
-                 filter(event == "complete_pass" & house_pass == F & behind_net_pass == F & through_middle_pass == F),
+                 filter(event == "complete_pass" & house_pass == F & behind_net_pass == F & through_middle_pass == F
+                        & (lead(event) == "goal" | lead(event) == "shot") & x2 <189),
                aes(x = x, xend = x2, y = y, yend = y2, color = one_timer_pass),
                alpha = 0.1,
                linewidth = 0.6,
@@ -688,7 +705,7 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
                arrow = arrow(length = unit(0.15, 'cm'))
   ) +
   geom_point(data=shots_passes %>% 
-               filter((event == "goal" | event == "shot") & house_shot == F & behind_net_shot == F & through_middle_shot == F), 
+               filter((event == "goal" | event == "shot") & house_shot == F & behind_net_shot == F & through_middle_shot == F & lag(event) == "complete_pass" & x<189), 
              aes(x = x, y = y, color = event),
              size = 0.7) + 
   scale_color_manual(name = "Type of Event", 
@@ -725,3 +742,5 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
   ggtitle("All Passes From not Behind the Net to 'The House'\nwith all passes not through midline")
   
     rink_overlay(gg_no_behind_house_no_middle_plays)
+    
+ 
