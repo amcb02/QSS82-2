@@ -443,7 +443,9 @@ offensive_events <- games%>%
   mutate(shot_after_pass =case_when(
     one_timer == T ~ F,
     one_timer == F ~ as.logical(ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(period_seconds) - period_seconds < 2, T, F))))%>%
-  mutate(advantage = home_skaters - away_skaters)
+  mutate(advantage = case_when(
+    team == home_team ~ home_skaters - away_skaters,
+    team == away_team ~ away_skaters - home_skaters))
 
 house_shot_df <- offensive_events%>%
   select(x, y)
