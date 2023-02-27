@@ -495,6 +495,28 @@ house_glm_or_table <- data.frame(odds_ratio_coef = format(exp(coef(house_glm)), 
 # Predict using the model
 house_events$prob <- predict(house_glm, newdata = house_events, type = "response")
 
+#total goals scored by each player in the house
+player_house_goals <- house_events%>%
+  filter(event == "goal")%>%
+  ungroup()%>%
+  group_by(player)%>%
+  summarize(player_goals = sum(event == "goal"))%>%
+  arrange(-player_goals)
+
+#predicted goals scored by each player in the house
+player_pred_house_goals <- house_events%>%
+  filter(event == "shot" | event == "goal")%>%
+  ungroup()%>%
+  group_by(player)%>%
+  summarize(player_prob = sum(prob))%>%
+  arrange(-player_prob)
+
+#difference in actual and predicted goals scored in the house. Positive = more goals than expected, Negative = less goals than expected
+delta_player_house_goals <- right_join(player_house_goals, player_pred_house_goals, by="player")%>%
+  mutate_at('player_goals', ~ replace_na(., 0))%>%
+  mutate(delta = player_goals - player_prob)%>%
+  arrange(-delta)
+
 # Find mean probability of a goal being scored based on one_timer
 house_events_mean_prob <- house_events%>%
   ungroup()%>%
@@ -542,6 +564,28 @@ non_house_glm_or_table <- data.frame(odds_ratio_coef = format(exp(coef(non_house
 
 # Predict using the model
 non_house_events$prob <- predict(non_house_glm, newdata = non_house_events, type = "response")
+
+#total goals scored by each player in the house
+player_non_house_goals <- non_house_events%>%
+  filter(event == "goal")%>%
+  ungroup()%>%
+  group_by(player)%>%
+  summarize(player_goals = sum(event == "goal"))%>%
+  arrange(-player_goals)
+
+#predicted goals scored by each player in the house
+player_pred_non_house_goals <- non_house_events%>%
+  filter(event == "shot" | event == "goal")%>%
+  ungroup()%>%
+  group_by(player)%>%
+  summarize(player_prob = sum(prob))%>%
+  arrange(-player_prob)
+
+#difference in actual and predicted goals scored in the house. Positive = more goals than expected, Negative = less goals than expected
+delta_player_non_house_goals <- right_join(player_non_house_goals, player_pred_non_house_goals, by="player")%>%
+  mutate_at('player_goals', ~ replace_na(., 0))%>%
+  mutate(delta = player_goals - player_prob)%>%
+  arrange(-delta)
 
 # Find mean probability of a goal being scored based on one_timer
 non_house_events_mean_prob <- non_house_events%>%
