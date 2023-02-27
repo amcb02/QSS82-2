@@ -415,7 +415,7 @@ final_game <- combined_data_2 %>%
 
 #join final_game data (final play of each game and its winner) to full dataset
 games <- full_join(combined_data_2, final_game, by = c("gameID", "date", "home_team", "away_team"))%>%
-  mutate(one_timer_pass = ifelse((lead(event) == "shot" | lead(event) == "goal") & lead(one_timer) == T, T, F))%>%
+  mutate(one_timer_pass = as.factor(ifelse((lead(event) == "shot" | lead(event) == "goal") & lead(one_timer) == T, T, F)))%>%
   mutate(goal = event == "goal")%>%
   mutate_at(c('traffic', 'one_timer', 'one_timer_pass'), ~ replace_na(., F))
 
@@ -429,19 +429,19 @@ offensive_events <- games%>%
          x>=125,
          x2>=125 | is.na(x2) == T
   )%>% #x2 only !NA for passes, x2 == NA for goals and shots
-  mutate(through_middle_pass = case_when( #find whether or not pass went through center line of ice
+  mutate(through_middle_pass = as.logical(case_when( #find whether or not pass went through center line of ice
     (event == "complete_pass" & y >=42.5 & y2 <= 42.5 & x2 <189) ~ T,
     (event == "complete_pass" & y2 >=42.5 & y <= 42.5 & x2 <189) ~ T,
     T ~ F
-  ))%>% 
-  mutate(through_middle_shot = ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" &  lag(through_middle_pass) == T, T, F))%>%
-  mutate(behind_net_pass = case_when(
+  )))%>% 
+  mutate(through_middle_shot = as.logical(ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" &  lag(through_middle_pass) == T, T, F)))%>%
+  mutate(behind_net_pass = as.logical(case_when(
       (event == "complete_pass" & x >= 189 & x2 < 189 & x2 >= 125) ~ T,
       T ~ F
-    ))%>%
-  mutate(behind_net_shot = ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(behind_net_pass) == T, T, F))%>%
+    )))%>%
+  mutate(behind_net_shot = as.logical(ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(behind_net_pass) == T, T, F)))%>%
   mutate(period_seconds = minutes*60 + seconds)%>%
-  mutate(shot_after_pass = ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(period_seconds) - period_seconds <= 2, T, F))
+  mutate(shot_after_pass = as.logical(ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(period_seconds) - period_seconds <= 2, T, F)))
 
 house_shot_df <- offensive_events%>%
   select(x, y)
@@ -472,34 +472,44 @@ house_events <- shots_passes%>%
   mutate(avg_shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
 
 house_events_summary <- shots_passes%>%
-  filter(house_shot == T | house_pass == T,
-         detail_1 != "Fan",
-         detail_1 != "Wrap Around")%>%
+  filter(house_shot == T | house_pass == T)%>%
   group_by(behind_net_shot, one_timer, through_middle_shot, shot_after_pass)%>%
   summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
   
-house_glm <- glm(goal ~ behind_net_shot + one_timer + through_middle_shot + shot_after_pass + goal_dist + shot_angle + detail_1 + traffic, data = house_events, family = 'binomial')
+house_glm <- glm(goal ~ behind_net_shot + one_timer + through_middle_shot + shot_after_pass + goal_dist + shot_angle + traffic, data = house_events, family = 'binomial')
 summary(house_glm)
 house_glm_odds_ratios <- exp(coef(house_glm))
-summary(house_glm_odds_ratios)
+
 
 # Set scipen option to turn off scientific notation for small numbers
 options(scipen = 999)
+
 # Compute odds ratios and associated p-values
 house_glm_or_table <- data.frame(odds_ratio_coef = format(exp(coef(house_glm)), digits = 3),  # Exponentiate coefficients to get odds ratios
                                  Std_Error = format(summary(house_glm)$coefficients[,2], digits = 3),
                                   z_value = format(summary(house_glm)$coefficients[,3], digits = 3), 
-                                p_value = format(summary(house_glm)$coefficients[,4], digits = 3),
-                                stat_sig = case_when(
-                                  p_value < 0.001 ~ "****",
-                                  p_value < 0.01 & p_value >0.001 ~ "***",
-                                  p_value <0.05 & p_value >0.01 ~ "**",
-                                  p_value <0.1 & p_value >0.05 ~ "*",
-                                  p_value >0.1 ~ "not signficant"))
-# Convert coefficients to percent changes
-percent_changes <- (odds_ratios - 1) * 100
+                                p_value = format(summary(house_glm)$coefficients[,4], digits = 3))
 
-table(house_events$shot_pct)%>%prop.table
+# Predict using the model
+house_events$prob <- predict(house_glm, newdata = house_events, type = "response")
+
+# Find mean probability of a goal being scored based on one_timer
+house_events_mean_prob <- house_events%>%
+  ungroup()%>%
+  group_by(one_timer)%>%
+  summarize(mean_prob = mean(prob))
+
+# Graph mean probability of a goal being scored based on one_timer
+ggplot(house_events_mean_prob, aes(x = one_timer, y = mean_prob)) +
+  geom_bar(stat = "identity") +
+  ylab("Mean Probability of Scoring") +
+  xlab("One-Timer")
+
+# create a scatter plot of predicted probabilities vs. goal_dist
+ggplot(house_events, aes(x = goal_dist, y = prob)) +
+  geom_point() +
+  stat_smooth(method = "glm", method.args = (family = "binomial"), se = T)+
+  labs(x = "Goal Distance", y = "Predicted Probability of Goal")
 
 non_house_events <- shots_passes%>%
   filter(house_shot == F & house_pass == F,
@@ -519,8 +529,37 @@ non_house_events_summary <- shots_passes%>%
   
 non_house_glm <- glm(goal ~ behind_net_shot  + one_timer + through_middle_shot + shot_after_pass +  goal_dist + shot_angle + detail_1 + traffic, data = non_house_events, family = 'binomial')
 summary(non_house_glm)
+non_house_glm_odds_ratios <- exp(coef(non_house_glm))
 
-table(non_house_events$shot_pct)%>%prop.table
+
+# Compute odds ratios and associated p-values
+non_house_glm_or_table <- data.frame(odds_ratio_coef = format(exp(coef(non_house_glm)), digits = 3),  # Exponentiate coefficients to get odds ratios
+                                 Std_Error = format(summary(non_house_glm)$coefficients[,2], digits = 3),
+                                  z_value = format(summary(non_house_glm)$coefficients[,3], digits = 3), 
+                                p_value = format(summary(non_house_glm)$coefficients[,4], digits = 3))
+
+# Predict using the model
+non_house_events$prob <- predict(non_house_glm, newdata = non_house_events, type = "response")
+
+# Find mean probability of a goal being scored based on one_timer
+non_house_events_mean_prob <- non_house_events%>%
+  ungroup()%>%
+  group_by(one_timer)%>%
+  summarize(mean_prob = mean(prob))
+
+# Graph mean probability of a goal being scored based on one_timer
+ggplot(non_house_events_mean_prob, aes(x = one_timer, y = mean_prob)) +
+  geom_bar(stat = "identity") +
+  ylab("Mean Probability of Scoring") +
+  xlab("One-Timer")
+
+# create a scatter plot of predicted probabilities vs. goal_dist
+ggplot(non_house_events, aes(x = goal_dist, y = prob)) +
+  geom_point() +
+  stat_smooth(method = "glm", method.args = (family = "binomial"), se = T)+
+  ylim(0,0.5)+
+  labs(x = "Goal Distance", y = "Predicted Probability of Goal")
+
 
 #one_timer house_pass behind_net
 {
