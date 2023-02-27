@@ -980,7 +980,6 @@ annotate_figure(shot_plot, top = text_grob("All Shots & Goals vs. One-Timer Shot
 #2d Density plot of one timer shots and goals
 {
 gg_one_timers_density <- plot_half_rink(ggplot(one_timers)) +
-#geom_density2d(aes(x=x, y=y))+
     stat_density2d(aes(x=x, y=y, fill = ..level.., alpha = ..level..), geom = "polygon")+
   scale_fill_continuous(type = "viridis") +
   scale_alpha(range = c(0.2, 1))+#color for tile heatmap, scale to same as offensive goals plot heatmap
@@ -990,8 +989,8 @@ gg_one_timers_density <- plot_half_rink(ggplot(one_timers)) +
   geom_point(
     data = one_timers %>% filter(event == "shot"),
     aes(x = x, y = y),
-    size = 0.001,
-    color = "lightblue"
+    size = 0.2,
+    color = "#30D0F0"
   ) +
   geom_point(
     data = one_timers %>% filter(event == "goal"),
@@ -1014,7 +1013,6 @@ gg_one_timers_density <- plot_half_rink(ggplot(one_timers)) +
 #2D density plot of non-one-timer shots and goals
 {
   gg_offensive_events_density <- plot_half_rink(ggplot(offensive_events)) +
-    #geom_density2d(aes(x=x, y=y))+
     stat_density2d(aes(x=x, y=y, fill = ..level.., alpha = ..level..), geom = "polygon")+
     scale_fill_continuous(type = "viridis") +
     scale_alpha(range = c(0.2, 1))+#color for tile heatmap, scale to same as offensive goals plot heatmap
@@ -1024,8 +1022,8 @@ gg_one_timers_density <- plot_half_rink(ggplot(one_timers)) +
     geom_point(
       data = one_timers %>% filter(event == "shot"),
       aes(x = x, y = y),
-      size = 0.001,
-      color = "lightblue"
+      size = 0.2,
+      color = "#30D0F0"
     ) +
     geom_point(
       data = one_timers %>% filter(event == "goal"),
@@ -1047,7 +1045,7 @@ gg_one_timers_density <- plot_half_rink(ggplot(one_timers)) +
 
 #arrange all goals and shot plot (OG_density) and one-timer goals and shots (OT_density)
 shot_density <- ggarrange(OG_density, OT_density, ncol=2)
-annotate_figure(shot_density, top = text_grob("2D Density plots of Non-One Timer Shots & Goals vs. One-Timer Shots & Goals",  color = "black", face = "bold", size = 14), bottom = text_grob("Shots: Light Blue\n Goals: Red", color = "black", size = 10))
+annotate_figure(shot_density, top = text_grob("2D Density plots of Non-One Timer Shots & Goals\nvs. One-Timer Shots & Goals",  color = "black", face = "bold", size = 14), bottom = text_grob("Shots: Light Blue\n Goals: Red", color = "black", size = 10))
 
 #Plot the Difference in one-timer and regular shot pct by coordinate
 {

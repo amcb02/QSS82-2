@@ -415,7 +415,7 @@ final_game <- combined_data_2 %>%
 
 #join final_game data (final play of each game and its winner) to full dataset
 games <- full_join(combined_data_2, final_game, by = c("gameID", "date", "home_team", "away_team"))%>%
-  mutate(one_timer_pass = as.factor(ifelse((lead(event) == "shot" | lead(event) == "goal") & lead(one_timer) == T, T, F)))%>%
+  mutate(one_timer_pass = as.logical(ifelse((lead(event) == "shot" | lead(event) == "goal") & lead(one_timer) == T, T, F)))%>%
   mutate(goal = event == "goal")%>%
   mutate_at(c('traffic', 'one_timer', 'one_timer_pass'), ~ replace_na(., F))
 
@@ -425,10 +425,9 @@ levels(games$home_team) <- c(levels(games$home_team), "SWZ")
 }
 
 offensive_events <- games%>%
-  filter(event == "goal" | event == "shot" | event == "complete_pass",
-         x>=125,
-         x2>=125 | is.na(x2) == T
-  )%>% #x2 only !NA for passes, x2 == NA for goals and shots
+  filter(event == "goal" | event == "shot" | event == "complete_pass")%>%
+  filter(x>=125)%>%
+  filter(x2>=125 | is.na(x2) == T)%>% #x2 only !NA for passes, x2 == NA for goals and shots
   mutate(through_middle_pass = as.logical(case_when( #find whether or not pass went through center line of ice
     (event == "complete_pass" & y >=42.5 & y2 <= 42.5 & x2 <189) ~ T,
     (event == "complete_pass" & y2 >=42.5 & y <= 42.5 & x2 <189) ~ T,
@@ -443,7 +442,8 @@ offensive_events <- games%>%
   mutate(period_seconds = minutes*60 + seconds)%>%
   mutate(shot_after_pass =case_when(
     one_timer == T ~ F,
-    one_timer == F ~ as.logical(ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(period_seconds) - period_seconds < 2, T, F))))
+    one_timer == F ~ as.logical(ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(period_seconds) - period_seconds < 2, T, F))))%>%
+  mutate(advantage = home_skaters - away_skaters)
 
 house_shot_df <- offensive_events%>%
   select(x, y)
