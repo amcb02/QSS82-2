@@ -1,3 +1,7 @@
+library(tidyverse)
+source("plot_half_rink.R")
+
+# TEMPLATE
 plot_half_rink(ggplot())+
   xlim(115,210)+
   ylim(-10, 95)+
