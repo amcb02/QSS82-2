@@ -476,7 +476,7 @@ house_events_summary <- shots_passes%>%
   group_by(behind_net_shot, one_timer, through_middle_shot, shot_after_pass)%>%
   summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
   
-house_glm <- glm(goal ~ behind_net_shot + one_timer + through_middle_shot + shot_after_pass + goal_dist + shot_angle + traffic, data = house_events, family = 'binomial')
+house_glm <- glm(goal ~ behind_net_shot + one_timer + through_middle_shot + shot_after_pass + goal_dist + shot_angle + detail_1 + traffic, data = house_events, family = 'binomial')
 summary(house_glm)
 house_glm_odds_ratios <- exp(coef(house_glm))
 
