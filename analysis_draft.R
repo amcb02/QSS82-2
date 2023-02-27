@@ -441,7 +441,9 @@ offensive_events <- games%>%
     )))%>%
   mutate(behind_net_shot = as.logical(ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(behind_net_pass) == T, T, F)))%>%
   mutate(period_seconds = minutes*60 + seconds)%>%
-  mutate(shot_after_pass = as.logical(ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(period_seconds) - period_seconds <= 2, T, F)))
+  mutate(shot_after_pass =case_when(
+    one_timer == T ~ F,
+    one_timer == F ~ as.logical(ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(period_seconds) - period_seconds < 2, T, F))))
 
 house_shot_df <- offensive_events%>%
   select(x, y)
@@ -476,7 +478,7 @@ house_events_summary <- shots_passes%>%
   group_by(behind_net_shot, one_timer, through_middle_shot, shot_after_pass)%>%
   summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
   
-house_glm <- glm(goal ~ behind_net_shot + one_timer + through_middle_shot + shot_after_pass + goal_dist + shot_angle + detail_1 + traffic, data = house_events, family = 'binomial')
+house_glm <- glm(goal ~ behind_net_shot + one_timer + through_middle_shot + shot_after_pass + goal_dist + shot_angle + period_seconds +  traffic, data = house_events, family = 'binomial')
 summary(house_glm)
 house_glm_odds_ratios <- exp(coef(house_glm))
 
@@ -527,7 +529,7 @@ non_house_events_summary <- shots_passes%>%
   group_by(behind_net_shot, one_timer, through_middle_shot, shot_after_pass)%>%
   summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
   
-non_house_glm <- glm(goal ~ behind_net_shot  + one_timer + through_middle_shot + shot_after_pass +  goal_dist + shot_angle + detail_1 + traffic, data = non_house_events, family = 'binomial')
+non_house_glm <- glm(goal ~ behind_net_shot  + one_timer + through_middle_shot + shot_after_pass +  goal_dist + shot_angle + period_seconds + traffic, data = non_house_events, family = 'binomial')
 summary(non_house_glm)
 non_house_glm_odds_ratios <- exp(coef(non_house_glm))
 
@@ -557,7 +559,7 @@ ggplot(non_house_events_mean_prob, aes(x = one_timer, y = mean_prob)) +
 ggplot(non_house_events, aes(x = goal_dist, y = prob)) +
   geom_point() +
   stat_smooth(method = "glm", method.args = (family = "binomial"), se = T)+
-  ylim(0,0.5)+
+  ylim(0,0.4)+
   labs(x = "Goal Distance", y = "Predicted Probability of Goal")
 
 

@@ -3,6 +3,62 @@ install.packages("dagitty")
 library(ggdag)
 library(dagitty)
 
+dag_goal <- dagify(
+  goal ~ goal_dist,
+  goal ~ shot_angle,
+  goal ~ one_timer,
+  goal ~ behind_net_shot,
+  goal ~ through_middle_shot,
+  goal ~ shot_after_pass,
+  goal ~ period_seconds,
+  goal ~ detail_1,
+  goal ~ traffic)%>%
+  tidy_dagitty() %>%
+  dag_label(
+    labels = c(
+      "goal" = "Result of shot\n is a goal",
+      "goal_dist" = "Distance of shot",
+      "shot_angle" = "Angle of shot",
+      "one_timer" = "One-timer",
+      "behind_net_shot" = "Shot after pass\n from behind the net",
+      "through_middle_shot" = "Shot after pass\n through midline",
+      "shot_after_pass" = "Shot within 1 second\n of recieving pass",
+      "period_seconds" = "Seconds left\nin the period",
+      "detail_1" = "Shot Type",
+      "traffic" = "Traffic in between\n shooter and goalie"))
+dag_goal_2 <- dag_goal%>%
+mutate(
+    linetype = ifelse(direction == "<->", "dashed", "solid"),
+    latent = ifelse(name == "lockdown", "latent", "observed"),
+  ) %>%
+  mutate(
+    vartype = case_when(
+      name == "goal" ~ "iv",
+      name == "one_timer" ~ "dv",
+      name == "through_middle_shot" ~ "dv",
+      name == "behind_net_shot" ~ "dv",
+      name == "shot_after_pass" ~ "dv",
+      TRUE ~ "control"
+    )
+  ) %>%
+  ggplot(aes(
+    x = x,
+    y = y,
+    xend = xend,
+    yend = yend
+  )) +
+  geom_dag_point(aes(color = vartype), size = 28,
+                 show.legend = FALSE) +
+  geom_dag_text(aes(label = label), size = 2.25, color = 'black') +
+  geom_dag_edges(aes(edge_linetype = linetype),
+                 show.legend = FALSE) +
+  scale_color_manual(values = c("gray70", "red", "#7875c2")) +
+  theme_dag()
+
+dag_goal_2
+
+
+##PREVIOUS DAG
 
 dag1 <- dagify(
   xG2 ~ detail_1,
