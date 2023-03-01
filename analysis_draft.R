@@ -876,20 +876,19 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
     rink_overlay(gg_no_behind_house_no_middle_plays)
     
 #plotting of all teams shots and goals
-source("plot_team_shots_goals.R")
-ggsave("team_plays/CAN_2d.jpeg", plot_team_shots_goals('CAN', 'Olympic'))
-ggsave("team_plays/RUS_2d.jpeg", plot_team_shots_goals('RUS', 'Olympic'))
-ggsave("team_plays/FIN_2d.jpeg", plot_team_shots_goals('FIN', 'Olympic'))
-ggsave("team_plays/USA_2d.jpeg", plot_team_shots_goals('USA', 'Olympic'))
-ggsave("team_plays/SWZ_2d.jpeg", plot_team_shots_goals('SZW', 'Olympic'))
-ggsave("team_plays/Clarkson_2d.jpeg", plot_team_shots_goals('Clarkson', 'NCAA'))
-ggsave("team_plays/St_Lawrence_2d.jpeg", plot_team_shots_goals('St_Lawrence', 'NCAA'))
-ggsave("team_plays/Boston_2d.jpeg", plot_team_shots_goals('Boston', 'NWHL'))
-ggsave("team_plays/Minnesota_2d.jpeg", plot_team_shots_goals('Minnesota', 'NWHL'))
-ggsave("team_plays/Buffalo_2d.jpeg", plot_team_shots_goals('Buffalo', 'NWHL'))
-ggsave("team_plays/Connecticut_2d.jpeg", plot_team_shots_goals('Connecticut', 'NWHL'))
-ggsave("team_plays/Toronto_2d.jpeg", plot_team_shots_goals('Toronto', 'NWHL'))
-ggsave("team_plays/Metropolitan_2d.jpeg", plot_team_shots_goals('Metropolitan', 'NWHL'))
-      
+
+ggsave("team_plays/CAN_2d.jpeg", plot_team_shots_goals('CAN','Team Canada', 'Olympic'))
+ggsave("team_plays/RUS_2d.jpeg", plot_team_shots_no_goals('RUS', 'Team Russia', 'Olympic'))
+ggsave("team_plays/FIN_2d.jpeg", plot_team_shots_goals('FIN', 'Team Finland', 'Olympic'))
+ggsave("team_plays/USA_2d.jpeg", plot_team_shots_goals('USA', 'Team USA', 'Olympic'))
+ggsave("team_plays/SWZ_2d.jpeg", plot_team_shots_goals('SWZ', 'Team Switzerland', 'Olympic'))
+ggsave("team_plays/Clarkson_2d.jpeg", plot_team_shots_goals('Clarkson', 'the Clarkson Golden Knights', 'NCAA'))
+ggsave("team_plays/St_Lawrence_2d.jpeg", plot_team_shots_goals('St_Lawrence','the St. Lawrence Saints', 'NCAA'))
+ggsave("team_plays/Boston_2d.jpeg", plot_team_shots_goals('Boston', 'the Boston Pride', 'NWHL'))
+ggsave("team_plays/Minnesota_2d.jpeg", plot_team_shots_goals('Minnesota', 'the Minnesota Whitecaps', 'NWHL'))
+ggsave("team_plays/Buffalo_2d.jpeg", plot_team_shots_no_goals('Buffalo','the Buffalo Beauts', 'NWHL'))
+ggsave("team_plays/Connecticut_2d.jpeg", plot_team_shots_goals('Connecticut', 'the Connecticut Whale', 'NWHL'))
+ggsave("team_plays/Toronto_2d.jpeg", plot_team_shots_goals('Toronto', 'the Toronto Six', 'NWHL'))
+ggsave("team_plays/Metropolitan_2d.jpeg", plot_team_shots_no_goals('Metropolitan','the Metropolitan Riveters', 'NWHL'))
  
  
