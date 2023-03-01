@@ -461,6 +461,8 @@ house_pass_df <- house_pass_df%>%
   select(house_pass) #find whether x2, y2 coordinates are in the house
 
 shots_passes <- cbind(offensive_events, house_shot_df, house_pass_df)
+shots_passes$detail_1 <- droplevels(shots_passes$detail_1, exclude = c("indirect", "direct"))
+levels(shots_passes$detail_1)
 
 shots_by_house <- shots_passes%>%
   group_by(house_shot)%>%
@@ -496,6 +498,7 @@ house_glm_or_table <- data.frame(odds_ratio_coef = format(exp(coef(house_glm)), 
 
 # Predict using the model
 house_events$prob <- predict(house_glm, newdata = house_events, type = "response")
+house_events[,c("behind_net_shot_prob", "one_timer_prob", "through_middle_shot_prob", "shot_after_pass_prob", "goal_dist_prob", "shot_angle_prob", "period_seconds_prob", "traffic_prob")] <- predict(house_glm, newdata = house_events, type = "terms")
 
 #total goals scored by each player in the house
 player_house_goals <- house_events%>%
@@ -517,6 +520,28 @@ player_pred_house_goals <- house_events%>%
 delta_player_house_goals <- right_join(player_house_goals, player_pred_house_goals, by="player")%>%
   mutate_at('player_goals', ~ replace_na(., 0))%>%
   mutate(delta = player_goals - player_prob)%>%
+  arrange(-delta)
+
+#total goals scored by each team in the house
+team_house_goals <- house_events%>%
+  filter(event == "goal")%>%
+  ungroup()%>%
+  group_by(team)%>%
+  summarize(team_goals = sum(event == "goal"))%>%
+  arrange(-team_goals)
+
+#predicted goals scored by each team in the house
+team_pred_house_goals <- house_events%>%
+  filter(event == "shot" | event == "goal")%>%
+  ungroup()%>%
+  group_by(team)%>%
+  summarize(team_prob = sum(prob))%>%
+  arrange(-team_prob)
+
+#difference in actual and predicted goals scored in the house. Positive = more goals than expected, Negative = less goals than expected
+delta_team_house_goals <- right_join(team_house_goals, team_pred_house_goals, by="team")%>%
+  mutate_at('team_goals', ~ replace_na(., 0))%>%
+  mutate(delta = team_goals - team_prob)%>%
   arrange(-delta)
 
 # Find mean probability of a goal being scored based on one_timer
@@ -793,7 +818,9 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
                                  `TRUE` = 'orange', 
                                  `FALSE`  = "blue"),
                       labels = c("Non-One-Timer Pass", "Goal", "Shot", "One-Timer Pass")) +
-  ggtitle("All Passes From not Behind the Net\nto outside 'The House'\nwith all passes through midline")
+  ggtitle("All Passes From not Behind the Net\nto outside 'The House'\nwith all passes through midline")+
+    theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5))
+
   
     rink_overlay(gg_no_behind_no_house_middle_plays)
     
@@ -848,4 +875,21 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
   
     rink_overlay(gg_no_behind_house_no_middle_plays)
     
+#plotting of all teams shots and goals
+source("plot_team_shots_goals.R")
+ggsave("team_plays/CAN_2d.jpeg", plot_team_shots_goals('CAN', 'Olympic'))
+ggsave("team_plays/RUS_2d.jpeg", plot_team_shots_goals('RUS', 'Olympic'))
+ggsave("team_plays/FIN_2d.jpeg", plot_team_shots_goals('FIN', 'Olympic'))
+ggsave("team_plays/USA_2d.jpeg", plot_team_shots_goals('USA', 'Olympic'))
+ggsave("team_plays/SWZ_2d.jpeg", plot_team_shots_goals('SZW', 'Olympic'))
+ggsave("team_plays/Clarkson_2d.jpeg", plot_team_shots_goals('Clarkson', 'NCAA'))
+ggsave("team_plays/St_Lawrence_2d.jpeg", plot_team_shots_goals('St_Lawrence', 'NCAA'))
+ggsave("team_plays/Boston_2d.jpeg", plot_team_shots_goals('Boston', 'NWHL'))
+ggsave("team_plays/Minnesota_2d.jpeg", plot_team_shots_goals('Minnesota', 'NWHL'))
+ggsave("team_plays/Buffalo_2d.jpeg", plot_team_shots_goals('Buffalo', 'NWHL'))
+ggsave("team_plays/Connecticut_2d.jpeg", plot_team_shots_goals('Connecticut', 'NWHL'))
+ggsave("team_plays/Toronto_2d.jpeg", plot_team_shots_goals('Toronto', 'NWHL'))
+ggsave("team_plays/Metropolitan_2d.jpeg", plot_team_shots_goals('Metropolitan', 'NWHL'))
+      
+ 
  
