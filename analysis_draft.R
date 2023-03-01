@@ -556,6 +556,27 @@ ggplot(house_events_mean_prob, aes(x = one_timer, y = mean_prob)) +
   ylab("Mean Probability of Scoring") +
   xlab("One-Timer")
 
+# Find mean probability of a goal being scored based on one_timer by team
+team_house_events_mean_prob <- house_events%>%
+  ungroup()%>%
+  group_by(one_timer, team)%>%
+  summarize(mean_prob = mean(prob))
+
+# Graph mean probability of a goal being scored based on one_timer by team
+ggplot(team_house_events_mean_prob%>%filter(one_timer == T), aes(x = team, y = mean_prob, fill = mean_prob)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(mean_prob, accuracy = 0.01), hjust = 2.2), size = 4, angle = 90, color = "white")+
+  scale_color_continuous(type = 'viridis')+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0, 0.20, 0.025)) +
+  ylab("Mean Probability") +
+  xlab("Team")+
+  ggtitle("Mean Probability of Scoring a\nOne-Timer in 'The House' by Team")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 90, size = 10),
+        legend.position = 'none',
+        plot.title = element_text(size = 12, face = "bold", hjust = 0.5))
+  
+
 # create a scatter plot of predicted probabilities vs. goal_dist
 ggplot(house_events, aes(x = goal_dist, y = prob)) +
   geom_point() +
@@ -625,6 +646,26 @@ ggplot(non_house_events_mean_prob, aes(x = one_timer, y = mean_prob)) +
   geom_bar(stat = "identity") +
   ylab("Mean Probability of Scoring") +
   xlab("One-Timer")
+
+# Find mean probability of a goal being scored based on one_timer by team
+team_non_house_events_mean_prob <- non_house_events%>%
+  ungroup()%>%
+  group_by(one_timer, team)%>%
+  summarize(mean_prob = mean(prob))
+
+# Graph mean probability of a goal being scored based on one_timer by team
+ggplot(team_non_house_events_mean_prob%>%filter(one_timer == T), aes(x = team, y = mean_prob, fill = mean_prob)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(mean_prob, accuracy = 0.01), hjust = 1.7), size = 4, angle = 90, color = "white")+
+  scale_color_continuous(type = 'viridis')+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0, 0.05, 0.01)) +
+  ylab("Mean Probability") +
+  xlab("Team")+
+  ggtitle("Mean Probability of Scoring a\nOne-Timer not in 'The House' by Team")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 90, size = 10),
+        legend.position = 'none',
+        plot.title = element_text(size = 12, face = "bold", hjust = 0.5))
 
 # create a scatter plot of predicted probabilities vs. goal_dist
 ggplot(non_house_events, aes(x = goal_dist, y = prob)) +
@@ -876,20 +917,19 @@ gg_behind_house_plays <- plot_half_rink(ggplot()) +
     rink_overlay(gg_no_behind_house_no_middle_plays)
     
 #plotting of all teams shots and goals
-source("plot_team_shots_goals.R")
-ggsave("team_plays/CAN_2d.jpeg", plot_team_shots_goals('CAN', 'Olympic'))
-ggsave("team_plays/RUS_2d.jpeg", plot_team_shots_goals('RUS', 'Olympic'))
-ggsave("team_plays/FIN_2d.jpeg", plot_team_shots_goals('FIN', 'Olympic'))
-ggsave("team_plays/USA_2d.jpeg", plot_team_shots_goals('USA', 'Olympic'))
-ggsave("team_plays/SWZ_2d.jpeg", plot_team_shots_goals('SZW', 'Olympic'))
-ggsave("team_plays/Clarkson_2d.jpeg", plot_team_shots_goals('Clarkson', 'NCAA'))
-ggsave("team_plays/St_Lawrence_2d.jpeg", plot_team_shots_goals('St_Lawrence', 'NCAA'))
-ggsave("team_plays/Boston_2d.jpeg", plot_team_shots_goals('Boston', 'NWHL'))
-ggsave("team_plays/Minnesota_2d.jpeg", plot_team_shots_goals('Minnesota', 'NWHL'))
-ggsave("team_plays/Buffalo_2d.jpeg", plot_team_shots_goals('Buffalo', 'NWHL'))
-ggsave("team_plays/Connecticut_2d.jpeg", plot_team_shots_goals('Connecticut', 'NWHL'))
-ggsave("team_plays/Toronto_2d.jpeg", plot_team_shots_goals('Toronto', 'NWHL'))
-ggsave("team_plays/Metropolitan_2d.jpeg", plot_team_shots_goals('Metropolitan', 'NWHL'))
-      
+
+ggsave("team_plays/CAN_2d.jpeg", plot_team_shots_goals('CAN','Team Canada', 'Olympic'))
+ggsave("team_plays/RUS_2d.jpeg", plot_team_shots_no_goals('RUS', 'Team Russia', 'Olympic'))
+ggsave("team_plays/FIN_2d.jpeg", plot_team_shots_goals('FIN', 'Team Finland', 'Olympic'))
+ggsave("team_plays/USA_2d.jpeg", plot_team_shots_goals('USA', 'Team USA', 'Olympic'))
+ggsave("team_plays/SWZ_2d.jpeg", plot_team_shots_goals('SWZ', 'Team Switzerland', 'Olympic'))
+ggsave("team_plays/Clarkson_2d.jpeg", plot_team_shots_goals('Clarkson', 'the Clarkson Golden Knights', 'NCAA'))
+ggsave("team_plays/St_Lawrence_2d.jpeg", plot_team_shots_goals('St_Lawrence','the St. Lawrence Saints', 'NCAA'))
+ggsave("team_plays/Boston_2d.jpeg", plot_team_shots_goals('Boston', 'the Boston Pride', 'NWHL'))
+ggsave("team_plays/Minnesota_2d.jpeg", plot_team_shots_goals('Minnesota', 'the Minnesota Whitecaps', 'NWHL'))
+ggsave("team_plays/Buffalo_2d.jpeg", plot_team_shots_no_goals('Buffalo','the Buffalo Beauts', 'NWHL'))
+ggsave("team_plays/Connecticut_2d.jpeg", plot_team_shots_goals('Connecticut', 'the Connecticut Whale', 'NWHL'))
+ggsave("team_plays/Toronto_2d.jpeg", plot_team_shots_goals('Toronto', 'the Toronto Six', 'NWHL'))
+ggsave("team_plays/Metropolitan_2d.jpeg", plot_team_shots_no_goals('Metropolitan','the Metropolitan Riveters', 'NWHL'))
  
  
