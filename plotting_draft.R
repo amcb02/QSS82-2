@@ -894,7 +894,7 @@ gg_passes <- plot_half_rink(ggplot(
 
 #plot all offensive zone goals and shots
 {
-gg_offensive_events <- plot_half_rink(ggplot(offensive_events)) +
+gg_offensive_events <- plot_half_rink(ggplot(offensive_events%>%filter(one_timer == F))) +
   geom_tile(aes(
     x = x_group,
     y = y_group,
@@ -905,18 +905,18 @@ gg_offensive_events <- plot_half_rink(ggplot(offensive_events)) +
   )) + #tile heatmap
   scale_alpha(range = c(0.01, 1))+
   labs(fill = "Shot Percentage") +
-  ggtitle("All Goals and Shots") +
+  ggtitle("Non-One-Timer Goals and Shots") +
   scale_fill_gradientn(limits = c(-0.01, .35),
                        colors = c("blue", "green"),
                        labels = percent)+
   geom_point(
-    data = offensive_events %>% filter(event == "shot"),
+    data = offensive_events %>% filter(one_timer == F & event == "shot"),
     aes(x = x, y = y),
     size = 0.001,
     color = "lightblue",
   ) + #all shots
   geom_point(
-    data = offensive_events %>% filter(event == "goal"),
+    data = offensive_events %>% filter(one_timer == F & event == "goal"),
     aes(x = x, y = y),
     size = 0.3,
     color = "green"
@@ -944,7 +944,7 @@ gg_one_timers <- plot_half_rink(ggplot(one_timers)) +
     alpha = shot_pct
   )) + #tile heatmap
   labs(fill = "Shot Percentage") +
-  ggtitle("One Timer Goals and Shots") +
+  ggtitle("One-Timer Goals and Shots") +
   scale_fill_gradientn(limits = c(-0.01, .35),
                        colors = c("blue", "green"),
                        labels = percent) +
@@ -975,16 +975,16 @@ gg_one_timers <- plot_half_rink(ggplot(one_timers)) +
 
 #arrange all goals and shot plot (OG_plot) and one-timer goals and shots (OT_plot)
 shot_plot <- ggarrange(OG_plot, OT_plot, ncol=2, common.legend = TRUE, legend = "bottom")
-annotate_figure(shot_plot, top = text_grob("All Shots & Goals vs. One-Timer Shots & Goals",  color = "black", face = "bold", size = 14), bottom = text_grob("Shots: Light Yellow\n Goals: Green", color = "black", size = 10))
+annotate_figure(shot_plot, top = text_grob("Non-One-Timer Shots & Goals vs. One-Timer Shots & Goals",  color = "black", face = "bold", size = 14), bottom = text_grob("Shots: Light Blue\n Goals: Green", color = "black", size = 10))
 
 #2d Density plot of one timer shots and goals
 {
 gg_one_timers_density <- plot_half_rink(ggplot(one_timers)) +
-    stat_density2d(aes(x=x, y=y, fill = ..level.., alpha = ..level..), geom = "polygon")+
-  scale_fill_continuous(type = "viridis") +
+    stat_density_2d(aes(x=x, y=y, fill = ..level.., alpha = ..level..), geom = "polygon")+
+    scale_fill_gradientn(colors = rev(brewer.pal(n = 11, name = "RdYlGn")), guide = FALSE) +
   scale_alpha(range = c(0.2, 1))+#color for tile heatmap, scale to same as offensive goals plot heatmap
-    xlim(121,200)+
-    ylim(-3,88)+
+    xlim(120,200)+
+    ylim(-5,90)+
     ggtitle("One Timer Goals and Shots") +
   geom_point(
     data = one_timers %>% filter(event == "shot"),
@@ -1012,21 +1012,21 @@ gg_one_timers_density <- plot_half_rink(ggplot(one_timers)) +
 
 #2D density plot of non-one-timer shots and goals
 {
-  gg_offensive_events_density <- plot_half_rink(ggplot(offensive_events)) +
-    stat_density2d(aes(x=x, y=y, fill = ..level.., alpha = ..level..), geom = "polygon")+
-    scale_fill_continuous(type = "viridis") +
+  gg_offensive_events_density <- plot_half_rink(ggplot(offensive_events%>%filter(one_timer == F))) +
+    stat_density_2d(aes(x=x, y=y, fill = ..level.., alpha = ..level..), geom = "polygon")+
+    scale_fill_gradientn(colors = rev(brewer.pal(n = 11, name = "RdYlGn")), guide = FALSE) +
     scale_alpha(range = c(0.2, 1))+#color for tile heatmap, scale to same as offensive goals plot heatmap
-    xlim(121,200)+
-    ylim(-3,88)+
+    xlim(120,200)+
+    ylim(-5,90)+
     ggtitle("Non-One Timer Goals and Shots") +
     geom_point(
-      data = one_timers %>% filter(event == "shot"),
+      data = offensive_events%>%filter(one_timer == F & event == "shot"),
       aes(x = x, y = y),
-      size = 0.2,
+      size = 0.01,
       color = "#30D0F0"
     ) +
     geom_point(
-      data = one_timers %>% filter(event == "goal"),
+      data = offensive_events%>%filter(one_timer == F & event == "goal"),
       aes(x = x, y = y),
       size = 0.3,
       color = "red"

@@ -51,6 +51,8 @@ source("house.R")
 
 #Reformatting, cleaning, and data combination
 {
+# Set scipen option to turn off scientific notation for small numbers
+options(scipen = 999)
 #Rename Columns
 {
   colnames(olympic_data) <-
@@ -445,7 +447,8 @@ offensive_events <- games%>%
     one_timer == F ~ as.logical(ifelse((event == "shot" | event == "goal") & lag(event) == "complete_pass" & lag(period_seconds) - period_seconds < 2, T, F))))%>%
   mutate(advantage = case_when(
     team == home_team ~ home_skaters - away_skaters,
-    team == away_team ~ away_skaters - home_skaters))
+    team == away_team ~ away_skaters - home_skaters))%>%
+  mutate(home = ifelse(team == home_team, T, F))
 
 house_shot_df <- offensive_events%>%
   select(x, y)
@@ -461,8 +464,7 @@ house_pass_df <- house_pass_df%>%
   select(house_pass) #find whether x2, y2 coordinates are in the house
 
 shots_passes <- cbind(offensive_events, house_shot_df, house_pass_df)
-shots_passes$detail_1 <- droplevels(shots_passes$detail_1, exclude = c("indirect", "direct"))
-levels(shots_passes$detail_1)
+
 
 shots_by_house <- shots_passes%>%
   group_by(house_shot)%>%
@@ -472,23 +474,19 @@ house_events <- shots_passes%>%
   filter(house_shot == T | house_pass == T,
          detail_1 != "Fan",
          detail_1 != "Wrap Around")%>%
-  group_by(behind_net_shot, one_timer, through_middle_shot, shot_after_pass)%>%
-  mutate(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)%>%
+  group_by(one_timer, shot_after_pass, through_middle_shot, behind_net_shot)%>%
+  mutate(shot_pct = round(sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))*100, digits = 2))%>%
   ungroup()%>%
   mutate(avg_shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
 
 house_events_summary <- shots_passes%>%
   filter(house_shot == T | house_pass == T)%>%
-  group_by(behind_net_shot, one_timer, through_middle_shot, shot_after_pass)%>%
-  summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
+  group_by(one_timer, shot_after_pass, through_middle_shot, behind_net_shot)%>%
+  summarize(shot_pct = round(sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))*100, digits = 2))
   
-house_glm <- glm(goal ~ behind_net_shot + one_timer + through_middle_shot + shot_after_pass + goal_dist + shot_angle + period_seconds +  traffic, data = house_events, family = 'binomial')
+house_glm <- glm(goal ~ behind_net_shot + one_timer + through_middle_shot + shot_after_pass + goal_dist + shot_angle + period_seconds +  traffic + advantage, data = house_events, family = 'binomial')
 summary(house_glm)
 house_glm_odds_ratios <- exp(coef(house_glm))
-
-
-# Set scipen option to turn off scientific notation for small numbers
-options(scipen = 999)
 
 # Compute odds ratios and associated p-values
 house_glm_or_table <- data.frame(odds_ratio_coef = format(exp(coef(house_glm)), digits = 3),  # Exponentiate coefficients to get odds ratios
@@ -498,7 +496,7 @@ house_glm_or_table <- data.frame(odds_ratio_coef = format(exp(coef(house_glm)), 
 
 # Predict using the model
 house_events$prob <- predict(house_glm, newdata = house_events, type = "response")
-house_events[,c("behind_net_shot_prob", "one_timer_prob", "through_middle_shot_prob", "shot_after_pass_prob", "goal_dist_prob", "shot_angle_prob", "period_seconds_prob", "traffic_prob")] <- predict(house_glm, newdata = house_events, type = "terms")
+house_events[,c("behind_net_shot_prob", "one_timer_prob", "through_middle_shot_prob", "shot_after_pass_prob", "goal_dist_prob", "shot_angle_prob", "period_seconds_prob", "traffic_prob", "advantage_prob")] <- predict(house_glm, newdata = house_events, type = "terms")
 
 #total goals scored by each player in the house
 player_house_goals <- house_events%>%
@@ -587,19 +585,16 @@ non_house_events <- shots_passes%>%
   filter(house_shot == F & house_pass == F,
          detail_1 != "Fan",
          detail_1 != "Wrap Around")%>%
-  group_by(behind_net_shot, one_timer, through_middle_shot, shot_after_pass)%>%
-  mutate(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)%>%
-   ungroup()%>%
+  group_by(one_timer, shot_after_pass, through_middle_shot, behind_net_shot)%>%  mutate(shot_pct = round(sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))*100, digits = 2))%>%
+  ungroup()%>%
   mutate(avg_shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
 
 non_house_events_summary <- shots_passes%>%
-  filter(house_shot == F & house_pass == F,
-         detail_1 != "Fan",
-         detail_1 != "Wrap Around")%>%
-  group_by(behind_net_shot, one_timer, through_middle_shot, shot_after_pass)%>%
-  summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")))*100)
-  
-non_house_glm <- glm(goal ~ behind_net_shot  + one_timer + through_middle_shot + shot_after_pass +  goal_dist + shot_angle + period_seconds + traffic, data = non_house_events, family = 'binomial')
+  filter(house_shot == F & house_pass == F)%>%
+  group_by(one_timer, shot_after_pass, through_middle_shot, behind_net_shot)%>%
+  summarize(shot_pct = round(sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))*100, digits = 2))
+ 
+non_house_glm <- glm(goal ~ behind_net_shot  + one_timer + through_middle_shot + shot_after_pass +  goal_dist + shot_angle + period_seconds + traffic + advantage, data = non_house_events, family = 'binomial')
 summary(non_house_glm)
 non_house_glm_odds_ratios <- exp(coef(non_house_glm))
 
@@ -612,6 +607,7 @@ non_house_glm_or_table <- data.frame(odds_ratio_coef = format(exp(coef(non_house
 
 # Predict using the model
 non_house_events$prob <- predict(non_house_glm, newdata = non_house_events, type = "response")
+non_house_events[,c("behind_net_shot_prob", "one_timer_prob", "through_middle_shot_prob", "shot_after_pass_prob", "goal_dist_prob", "shot_angle_prob", "period_seconds_prob", "traffic_prob", "advantage_prob")] <- predict(non_house_glm, newdata = non_house_events, type = "terms")
 
 #total goals scored by each player in the house
 player_non_house_goals <- non_house_events%>%
@@ -674,6 +670,26 @@ ggplot(non_house_events, aes(x = goal_dist, y = prob)) +
   ylim(0,0.4)+
   labs(x = "Goal Distance", y = "Predicted Probability of Goal")
 
+#find difference in house vs. no house shooting pct
+house_delta <- cbind(house_events_summary[,1:4], house_shot_pct = house_events_summary$shot_pct, non_house_shot_pct = non_house_events_summary$shot_pct)%>%
+  mutate(delta = house_shot_pct - non_house_shot_pct)%>%
+  select(-house_shot_pct, -non_house_shot_pct)
+
+#Shot through midline == T
+chi_house_delta <- t(data.frame(c(house_events_summary[11:12,5], non_house_events_summary[11:12,5])))
+chisq.test(chi_house_delta)
+
+#Shot through midline == F
+chi_house_delta_2 <- t(data.frame(c(house_events_summary[9:10,5], non_house_events_summary[9:10,5])))
+chisq.test(chi_house_delta_2)
+
+#Behind net shot == T
+chi_house_delta_3 <- t(data.frame(c(house_events_summary[10:12,5], non_house_events_summary[10:12,5])))
+chisq.test(chi_house_delta_3)
+
+#Behind net shot == F
+chi_house_delta_4 <- t(data.frame(c(house_events_summary[9:11,5], non_house_events_summary[9:11,5])))
+chisq.test(chi_house_delta_4)
 
 #one_timer house_pass behind_net
 {

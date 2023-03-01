@@ -12,7 +12,16 @@ dag_goal <- dagify(
   goal ~ shot_after_pass,
   goal ~ period_seconds,
   goal ~ detail_1,
-  goal ~ traffic)%>%
+  goal ~ traffic,
+  goal ~~ shooter_ability,
+  goal ~~ goalie_ability,
+  goal ~~ passer_ability,
+  goal ~~ pass_difficulty,
+  pass_difficulty ~ pass_dist,
+  pass_difficulty ~ pass_traffic,
+  pass_difficulty ~ pass_type,
+  pass_difficulty ~ saucer_pass,
+  pass_difficulty ~~ pass_angle)%>%
   tidy_dagitty() %>%
   dag_label(
     labels = c(
@@ -25,7 +34,17 @@ dag_goal <- dagify(
       "shot_after_pass" = "Shot within 1 second\n of recieving pass",
       "period_seconds" = "Seconds left\nin the period",
       "detail_1" = "Shot Type",
-      "traffic" = "Traffic in between\n shooter and goalie"))
+      "traffic" = "Traffic in between\n shooter and goalie",
+      "shooter_ability" = "Shooter Ability",
+      "goalie_ability" = "Goalie Ability",
+      "passer_ability" = "Passer Ability",
+      "pass_difficulty" = "Pass Difficulty",
+      "pass_dist" = "Pass Distance",
+      "pass_traffic" = '# of Defenders between\n Passer and Shooter',
+      "pass_type" = "Type of Pass",
+      "saucer_pass" = "Saucer Pass",
+      "pass_angle" = "Pass Angle"
+      ))
 dag_goal_2 <- dag_goal%>%
 mutate(
     linetype = ifelse(direction == "<->", "dashed", "solid"),
