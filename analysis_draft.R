@@ -19,6 +19,8 @@
   library(ggpubr)
   library(RColorBrewer)
   library(splancs)
+  library(forestplot)
+  library(rms)
 }
 
 #download data from github
@@ -543,6 +545,7 @@ house_glm_1 <-
     family = 'binomial'
   )
 summary(house_glm_1)
+write.csv(as.data.frame(summary(house_glm_1)$coefficients), "house_glm_1.csv")
 house_glm_2 <-
   glm(
     goal ~ one_timer + behind_net_shot + through_middle_shot,
@@ -583,7 +586,8 @@ house_glm_results <-
 write.csv(house_glm_results, "house_glm_results.csv")
 write2word(house_glm_results, "house_glm_results.doc")
 
-library(forestplot)
+rms::vif(house_glm)
+
 
 # Create a data frame with odds ratios and confidence intervals
 house_glm_odds <- broom::tidy(house_glm, exponentiate = TRUE) %>%
