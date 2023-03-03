@@ -503,7 +503,34 @@ house_pass_df <- house_pass_df %>%
 
 shots_passes <-
   cbind(offensive_events, house_shot_df, house_pass_df)
-  }
+
+shots <- shots_passes%>%
+  filter(event == "goal" | event == "shot")
+}
+#GLM for all shots anywhere in offensive zone
+{
+full_glm <-
+  glm(
+    goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass + goal_dist + shot_angle + period_seconds +  traffic + advantage,
+    data = shots,
+    family = 'binomial'
+  )
+summary(full_glm)
+
+shots$prob <-
+  predict(full_glm, newdata = shots, type = "response")
+shots[, c(
+  "one_timer_decomp",
+  "behind_net_shot_decomp",
+  "through_middle_shot_decomp",
+  "shot_after_pass_decomp",
+  "goal_dist_decomp",
+  "shot_angle_decomp",
+  "period_seconds_decomp",
+  "traffic_decomp",
+  "advantage_decomp"
+)] <- predict(full_glm, newdata = shots, type = "terms")
+}
 
 #HOUSE ANALYSIS
 {
