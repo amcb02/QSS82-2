@@ -504,18 +504,64 @@ house_pass_df <- house_pass_df %>%
 shots_passes <-
   cbind(offensive_events, house_shot_df, house_pass_df)
 
+#only shots and goals
 shots <- shots_passes%>%
   filter(event == "goal" | event == "shot")
+
+#overall shot percentage of all shots 
+full_shot_pct <- shots%>%
+  ungroup()%>%
+  dplyr::summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))))%>%
+  as.numeric()
 }
 #GLM for all shots anywhere in offensive zone
 {
-full_glm <-
+full_glm_1 <-
+  glm(
+    goal ~ one_timer,
+    data = shots,
+    family = 'binomial'
+  )
+summary(full_glm_1)
+write.csv(as.data.frame(summary(full_glm_1)$coefficients), "full_glm_1.csv")
+full_glm_2 <-
+  glm(
+    goal ~ one_timer + behind_net_shot + through_middle_shot,
+    data = shots,
+    family = 'binomial'
+  )
+summary(full_glm_2)
+full_glm_3 <-
+  glm(
+    goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass,
+    data = shots,
+    family = 'binomial'
+  )
+summary(full_glm_3)
+full_glm_4 <-
+  glm(
+    goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass + goal_dist,
+    data = shots,
+    family = 'binomial'
+  )
+summary(full_glm_4)
+full_glm_5 <-
+  glm(
+    goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass + goal_dist + shot_angle,
+    data = shots,
+    family = 'binomial'
+  )
+summary(full_glm_5)
+house_glm <-
   glm(
     goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass + goal_dist + shot_angle + period_seconds +  traffic + advantage,
     data = shots,
     family = 'binomial'
   )
 summary(full_glm)
+full_glm_results <-
+  round(summary.glm(full_glm)$coefficients, digits = 4)
+full_glm_results
 
 shots$prob <-
   predict(full_glm, newdata = shots, type = "response")
@@ -534,9 +580,12 @@ shots[, c(
 
 #HOUSE ANALYSIS
 {
-shots_by_house <- shots_passes %>%
-  group_by(house_shot) %>%
-  dplyr::summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))) *100)
+  #actual shot percentage of all house shots
+  house_events_shot_pct <- house_events%>%
+  filter(event == "shot" | event == "goal")%>%
+  ungroup()%>%
+  dplyr::summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))))%>%
+  as.numeric()
 
 house_events <- shots_passes %>%
   filter(house_shot == T | house_pass == T,
@@ -756,6 +805,13 @@ ggplot(house_events, aes(x = goal_dist, y = prob)) +
   
 #NON-HOUSE EVENT ANALYSIS
 {
+# MEAN SHOT PCT FOR ALL NON-HOUSE SHOTS
+  non_house_events_shot_pct <- non_house_events%>%
+  filter(event == "shot" | event == "goal")%>%
+  ungroup()%>%
+  dplyr::summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))))%>%
+  as.numeric()
+  
 non_house_events <- shots_passes %>%
   filter(house_shot == F & house_pass == F,
          detail_1 != "Fan",
