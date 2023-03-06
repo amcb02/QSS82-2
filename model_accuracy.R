@@ -12,6 +12,7 @@ house_test = subset(house_events, house_split == FALSE)
 # Fit the logistic regression model
 house_train_glm = glm(goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass + goal_dist + shot_angle + period_seconds + traffic + advantage, data = house_train, family = "binomial")
 
+
 # Make predictions on the test set
 house_predictions = predict(house_train_glm, newdata = house_test, type = "response")
 house_predicted_classes = ifelse(house_predictions > mean(house_events$prob), 1, 0)
@@ -35,7 +36,7 @@ house_goals_diff
 #find difference in actual shot pct of house shots and mean of predicted shot pct
 house_events_shot_pct - mean(house_events$prob)
 }
-
+                                            
 #NON-HOUSE EVENTS MODEL ACCURACY
 {
 # Split the data into training and testing sets
@@ -49,7 +50,7 @@ non_house_train_glm = glm(goal ~ one_timer + behind_net_shot + through_middle_sh
 
 # Make predictions on the test set
 non_house_predictions = predict(non_house_train_glm, newdata = non_house_test, type = "response")
-non_house_predicted_classes = ifelse(non_house_predictions > non_house_events_shot_pct, 1, 0)
+non_house_predicted_classes = ifelse(non_house_predictions > mean(non_house_events$prob), 1, 0)
 
 # Create the confusion matrix
 non_house_conf_matrix = table(non_house_test$goal, non_house_predicted_classes)
@@ -89,7 +90,7 @@ full_train_glm = glm(goal ~ one_timer + behind_net_shot + through_middle_shot + 
 
 # Make predictions on the test set
 predictions = predict(full_train_glm, newdata = test, type = "response")
-predicted_classes = ifelse(predictions > mean(shots$prob), 1, 0)
+predicted_classes = ifelse(predictions > full_shot_pct, 1, 0)
 
 test_v_predicted_classes <- data.frame(test, predicted_classes, diff = case_when(
   test$goal == F & predicted_classes == 0 ~ "correct - true negative",
@@ -114,4 +115,20 @@ full_goals_diff
 
 #find difference in actual shot pct of all shots and mean of predicted shot pct
 full_shot_pct - mean(shots$prob)
+}
+
+#Random Forest for later
+{
+rf_model <- randomForest(goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass + goal_dist + shot_angle + period_seconds + traffic + advantage, data = house_train, ntree = 1000, importance = TRUE)
+var_imp <- importance(rf_model)
+var_imp
+varImpPlot(rf_model)
+x<- varImp(rf_model, type = 1)
+x%>%
+  arrange(desc(Overall))
+coef_prob <- data.frame(change = exp(x$Overall/100) - 1)
+rownames(coef_prob) = rownames(x)
+# Print the results
+coef_prob%>%
+  arrange(desc(change))
 }

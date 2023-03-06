@@ -101,7 +101,8 @@ rink_overlay <- function(p_object){
     panel.grid= element_blank(),
     plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
     plot.title.position = "plot",
-    plot.margin = unit(c(1, 0, 0, 0), "lines")
+    plot.margin = unit(c(1, 0, 0, 0), "lines"),
+    plot.subtitle = element_text(hjust = 0.5)
   )
   return(p)
 }
