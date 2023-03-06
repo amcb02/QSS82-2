@@ -21,6 +21,9 @@
   library(splancs)
   library(forestplot)
   library(rms)
+  library(vip)
+  library(stargazer)
+  library(marginaleffects)
 }
 
 #download data from github
@@ -427,9 +430,9 @@
     mutate_at(c('traffic', 'one_timer', 'one_timer_pass'),
               ~ replace_na(., F))
   
-  distinct(games, home_team) #missing "SWz" in home_team, so add them to factor to use later
+  distinct(games, home_team) #missing "SWZ" in home_team, so add them to factor to use later
   distinct(games, away_team)
-  levels(games$home_team) <- c(levels(games$home_team), "SWz")
+  levels(games$home_team) <- c(levels(games$home_team), "SWZ")
 
 
 offensive_events <- games %>%
@@ -501,14 +504,14 @@ house_pass_df <- house_pass_df %>%
   mutate(house_pass = 1:dim(offensive_events)[1] %in% inpip(house_pass_df, the_house)) %>%
   dplyr::select(house_pass) #find whether x2, y2 coordinates are in the house
 
-    #number of games played by each team
+shots_passes <-
+  cbind(offensive_events, house_shot_df, house_pass_df)
+
+#number of games played by each team
 games_played_team <- shots_passes%>%
   group_by(team)%>%
   distinct(gameID)%>%
   count(team)
-
-shots_passes <-
-  cbind(offensive_events, house_shot_df, house_pass_df)
 
 shots_passes <- right_join(shots_passes, games_played_team, by = 'team')
 shots_passes <- rename(shots_passes, gp_team = n)
@@ -681,7 +684,6 @@ stargazer(house_percent_change_prob, type = "latex", title = "Percent Change Pro
    dep.var.labels = c("goal"),
   covariate.labels = c("one_timerTRUE", "behind_net_shotTRUE", "through_middle_shotTRUE", "shot_after_passTRUE", "goal_dist", "shot_angle", "period_seconds,", "trafficTRUE", "advantage"),
   column.labels = c("Model 1"),
-  std
   out = "house_percent_change_prob.tex")
 
 stargazer(house_percent_change_prob, type = "latex", title = "Percent Change Probability of House Logistic Regression Models",
@@ -712,7 +714,7 @@ house_glm_odds <- broom::tidy(house_glm, exponentiate = TRUE) %>%
   mutate(lci = estimate - 1.96 * std.error,
          uci = estimate + 1.96 * std.error)
 
-forestplot(
+house_odds_plot <- forestplot(
   mean = house_glm_odds$estimate,
   lower = house_glm_odds$lci,
   upper = house_glm_odds$uci,
@@ -848,12 +850,6 @@ ggplot(house_events, aes(x = goal_dist, y = prob)) +
   
 #NON-HOUSE EVENT ANALYSIS
 {
-# MEAN SHOT PCT FOR ALL NON-HOUSE SHOTS
-  non_house_events_shot_pct <- non_house_events%>%
-  filter(event == "shot" | event == "goal")%>%
-  ungroup()%>%
-  dplyr::summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))))%>%
-  as.numeric()
   
 non_house_events <- shots_passes %>%
   filter(house_shot == F & house_pass == F,
@@ -867,6 +863,13 @@ non_house_events <- shots_passes %>%
   ungroup() %>%
   mutate(avg_shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))) *
            100)
+  
+  # MEAN SHOT PCT FOR ALL NON-HOUSE SHOTS
+  non_house_events_shot_pct <- non_house_events%>%
+  filter(event == "shot" | event == "goal")%>%
+  ungroup()%>%
+  dplyr::summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))))%>%
+  as.numeric()
 
 non_house_events_summary <- shots_passes %>%
   filter(house_shot == F & house_pass == F) %>%
@@ -937,12 +940,12 @@ non_house_glm_odds <-
   mutate(lci = estimate - 1.96 * std.error,
          uci = estimate + 1.96 * std.error)
 
-forestplot(
+non_house_odds_plot <- forestplot(
   mean = non_house_glm_odds$estimate,
   lower = non_house_glm_odds$lci,
   upper = non_house_glm_odds$uci,
   labeltext = non_house_glm_odds$term,
-  clip = c(0.01, Inf),
+  clip = c(-2, Inf),
   xlab = "Odds Ratio",
   zero = 1,
   boxsize = 0.15,
@@ -1045,6 +1048,38 @@ ggplot(non_house_events, aes(x = goal_dist, y = prob)) +
   ) +
   ylim(0, 0.4) +
   labs(x = "Goal Distance", y = "Predicted Probability of Goal")
+}
+
+#ODDS RATIOS
+or_plot <- ggarrange(house_odds_plot, non_house_odds_plot, ncol = 2)
+annotate_figure(or_plot, top = text_grob("Odds Ratios from Logistic Regression", size = 20, face = "bold"))
+#VARIABLE IMPORTANCE
+{
+house_impt<- vip(house_glm, geom = 'col', aesthetics = list(fill = "#00BAFF"))+
+  theme_pubr()+
+  ylab("Permutation-based Variable Importance") +
+  xlab("Variable") +
+  ggtitle("Inside 'The House'")+
+    theme(
+    axis.text = element_text(size = 10, face = 'bold'),
+    axis.title = element_text(size = 12, face = 'bold'),
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5)
+  )
+
+non_house_impt<- vip(non_house_glm, geom = 'col', aesthetics = list(fill = "#00BAFF"))+
+  theme_pubr()+
+  ylab("Permutation-based Variable Importance") +
+  xlab("Variable") +
+  ggtitle("Outside 'The House'")+
+    theme(
+    axis.text = element_text(size = 10, face = 'bold'),
+    axis.title = element_text(size = 12, face = 'bold'),
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5)
+  )
+non_house_impt
+
+impt_plot <- ggarrange(house_impt, non_house_impt, ncol = 2)
+annotate_figure(impt_plot, top = text_grob("Variable Importance", size = 20, face = "bold"))
 }
 
 #House vs. no house shooting pct
@@ -1499,7 +1534,7 @@ ggsave("team_plays/FIN_2d.jpeg",
 ggsave("team_plays/USA_2d.jpeg",
        plot_team_shots_goals('USA', 'Team USA', 'Olympic', '0.33'))
 ggsave(
-  "team_plays/SWz_2d.jpeg",
+  "team_plays/SWZ_2d.jpeg",
   plot_team_shots_goals('SWZ', 'Team Switzerland', 'Olympic', '1')
 )
 ggsave(

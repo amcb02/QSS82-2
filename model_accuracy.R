@@ -1,6 +1,6 @@
 library(caTools)
 library(pROC)
-
+library(randomForest)
 #HOUSE EVENTS MODEL ACCURACY
 {
 # Split the data into training and testing sets

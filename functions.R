@@ -92,7 +92,6 @@ scale_fill_manual(values = c(rev(brewer.pal(n = 11, name = "RdYlGn")), "green"),
      }
      
 ## Convert Regression Coefficients into percent change predicted probabilities
-     summary(house_glm)
 percent_change_prob <- function(coef) {
   (exp(coef) - 1) * 100
 }
