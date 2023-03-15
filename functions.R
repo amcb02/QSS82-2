@@ -38,7 +38,7 @@ rename_events <- function(event){
 }
 
 ## PLOTTING of 2D density plot of all shots and goals in offensive zone by given team
-    plot_team_shots_goals <- function(team, name, league, gpg){
+    plot_team_shots_goals <- function(team, name, league, gpg, gp){
      p<- plot_half_rink(ggplot()) +
       stat_density_2d_filled(data=shots_passes %>% 
                filter((event == "goal")  & team == !!team), 
@@ -49,23 +49,24 @@ rename_events <- function(event){
              size = 0.5) + 
               geom_point(data=shots_passes %>% 
                filter((event == "goal" | event == "shot") & one_timer == T & team == !!team), 
-             aes(x = x, y = y, fill = event, color = event),
-             size = 1.2, alpha = 0.7, shape = 21) + 
+             aes(x = x, y = y, color = event),
+             size = 2, alpha = 1) + 
 scale_color_manual(name = "Type of Event", 
-                   values = c(goal = "#FF0061", shot = "green"), 
+                   values = c(goal = "#FF0061", shot = "blue"), 
                    labels = c("One-Timer Goal", "One-Timer Shot"),
-                   guide = guide_legend(override.aes = list(fill = c("red", "green"), color = c("red", "green"), size = 4))) +
+                   guide = guide_legend(override.aes = list(fill = c("red", "blue"), color = c("red", "blue")))) +
 scale_fill_manual(values = c(rev(brewer.pal(n = 11, name = "RdYlGn")), "red", "green"), guide = FALSE) +
       scale_alpha_discrete(guide = FALSE)+
   ggtitle(paste("Density Plot of All One-Timer Shots and Goals\nby", name, "(",league,")"))+
       ylim(-2,87)+
-       labs(subtitle = paste("One-Timer Goals Per Game:", gpg))+
+       labs(subtitle = paste("One-Timer Goals Per Game:", gpg),
+            caption  = paste("Games Played:", gp))+
        theme(plot.subtitle = element_text(hjust = 0.5))
       
      rink_overlay(p)
     }
     
-     plot_team_shots_no_goals <- function(team, name, league, gpg){
+     plot_team_shots_no_goals <- function(team, name, league, gpg, gp){
      p<- plot_half_rink(ggplot()) +
       stat_density_2d_filled(data=shots_passes %>% 
                filter((event == "goal")  & team == !!team), 
@@ -77,25 +78,19 @@ scale_fill_manual(values = c(rev(brewer.pal(n = 11, name = "RdYlGn")), "red", "g
               geom_point(data=shots_passes %>% 
                filter((event == "goal" | event == "shot") & one_timer == T & team == !!team), 
              aes(x = x, y = y, fill = event, color = event),
-             size = 1.2, alpha = 0.7, shape = 21) + 
+             size = 2) + 
 scale_color_manual(name = "Type of Event", 
-                   values = c(shot = "green"), 
+                   values = c(shot = "blue"), 
                    labels = c("One-Timer Shot"),
-                   guide = guide_legend(override.aes = list(fill = c("green"), color = c("green"), size = 4))) +
+                   guide = guide_legend(override.aes = list(fill = c("blue"), color = c("blue")))) +
 scale_fill_manual(values = c(rev(brewer.pal(n = 11, name = "RdYlGn")), "green"), guide = FALSE) +
       scale_alpha_discrete(guide = FALSE)+
   ggtitle(paste("Density Plot of All One-Timer Shots and Goals\nby", name, "(",league,")"))+
       ylim(-2,87)+
-       labs(subtitle  = paste("One-Timer Goals Per Game:", gpg))
+       labs(subtitle  = paste("One-Timer Goals Per Game:", gpg),
+            caption   = paste("Games Played:", gp))+
+       theme(plot.subtitle = element_text(hjust = 0.5))
       
      rink_overlay(p)
      }
      
-## Convert Regression Coefficients into percent change predicted probabilities
-percent_change_prob <- function(coef) {
-  (exp(coef) - 1) * 100
-}
-
-likelihood_goal <- function(coef) {
-  exp(coef) / (1 + exp(coef))
-}

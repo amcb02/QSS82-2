@@ -21,6 +21,7 @@
   library(splancs)
   library(forestplot)
   library(rms)
+  library(rsq)
   library(vip)
   library(stargazer)
   library(marginaleffects)
@@ -144,9 +145,9 @@
                                    venue == "home" ~ team)) %>%
       mutate(away_team = case_when(venue == "away" ~ team,
                                    venue == "home" ~ opponent)) %>%
-      mutate(minutes = floor(period_sec_remaining / 60)) %>%
+      mutate(minutes = floor(period_sec_remaining / 60)) %>% 
       mutate(seconds = period_sec_remaining %% 60) %>%
-      separate(situation, c("team_skaters", "opponent_skaters"), sep = " on ") %>%
+      separate(situation, c("team_skaters", "opponent_skaters"), sep = " on ") %>% #divide team and opponent skaters
       mutate(home_skaters = as.integer(
         case_when(
           venue == "home" ~ team_skaters,
@@ -167,7 +168,7 @@
         case_when(venue == "away" ~ goals_for,
                   venue == "home" ~ goals_against)
       )) %>%
-      mutate(event = as.factor(
+      mutate(event = as.factor( #recode event names
         case_when(
           event == "Faceoff Win" ~ "faceoff_win",
           event == "Shot" &
@@ -188,7 +189,7 @@
       mutate(detail_1 = factor(detail_1)) %>%
       mutate(detail_2 = factor(detail_2)) %>%
       mutate(traffic = as.logical(case_when(traffic == "t" ~ T,
-                                            traffic == "f" ~ F))) %>%
+                                            traffic == "f" ~ F))) %>% #change from character to logical
       mutate(one_timer = as.logical(case_when(one_timer == "t" ~ T,
                                               one_timer == "f" ~ F))) %>%
       mutate(game_change = case_when(#create logical for when a new game is started
@@ -219,9 +220,9 @@
         ))
       ) %>%
       mutate(gameID = cumsum(game_change) + 28) %>% #create gameID that goes up by 1 for each new game
-      mutate(x_dist = abs(x - x2)) %>%
-      mutate(y_dist = abs(y - y2)) %>%
-      mutate(dist = sqrt(x_dist ^ 2 + y_dist ^ 2)) %>%
+      mutate(x_dist = abs(x - x2)) %>% #x-distance between passer and shooter
+      mutate(y_dist = abs(y - y2)) %>% #y-distance between passer and shooter
+      mutate(dist = sqrt(x_dist ^ 2 + y_dist ^ 2)) %>% #distance between passer and shooter
       mutate(home_team = factor(rename_teams(home_team))) %>%
       mutate(away_team = factor(rename_teams(away_team))) %>%
       mutate(team = rename_teams(team)) %>%
@@ -276,7 +277,7 @@
   }
   
   #combine womens and phf_2021
-  combined_data <- rbind(womens, phf_2021)
+  combined_data <- rbind(womens, phf_2021) 
   
   #total rows in combined_data
   num <- nrow(combined_data)
@@ -379,6 +380,7 @@
     #combine all data
     combined_data_2 <-
       full_join(combined_data_recode, olympic_data_recode)
+    
     #make last row in Start_end == end
     combined_data_2[61493, 'Start_end'] <- "end"
   }
@@ -507,25 +509,90 @@ house_pass_df <- house_pass_df %>%
 shots_passes <-
   cbind(offensive_events, house_shot_df, house_pass_df)
 
-#number of games played by each team
-games_played_team <- shots_passes%>%
-  group_by(team)%>%
-  distinct(gameID)%>%
-  count(team)
-
-shots_passes <- right_join(shots_passes, games_played_team, by = 'team')
-shots_passes <- rename(shots_passes, gp_team = n)
-
-
 #only shots and goals
 shots <- shots_passes%>%
-  filter(event == "goal" | event == "shot")
+  filter(event == "goal" | event == "shot",
+         detail_1 != "Fan",
+         detail_1 != "Wrap Around")
+#total shots
+nrow(shots)
+
+#number of games played by each team
+games_played_team <- shots%>%
+  group_by(team)%>%
+  distinct(gameID)%>%
+  count()
+colnames(games_played_team) <- c("team", "Games Played")
+kable(games_played_team, format = 'latex')
+
+shots <- right_join(shots, games_played_team, by = 'team')
+
+#games for each league
+league_games <- shots%>%
+  group_by(league)%>%
+    distinct(gameID)%>%
+  count()
+colnames(league_games) <- c("league", "Games Played")
+kable(league_games, format = 'latex')
 
 #overall shot percentage of all shots 
 full_shot_pct <- shots%>%
   ungroup()%>%
   dplyr::summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))))%>%
   as.numeric()
+
+event_count <- data.frame(c(
+  shots%>%
+    count(),
+  shots%>%
+  filter(house_shot == T)%>%
+  count(),
+  shots%>%
+  filter(house_shot == F)%>%
+  count(),
+  shots%>%
+  filter(behind_net_shot == T)%>%
+  count(),
+shots%>%
+  filter(through_middle_shot == T)%>%
+  count(),
+shots%>%
+  filter(one_timer == T)%>%
+  count(),
+shots%>%
+  filter(shot_after_pass == T)%>%
+  count()))%>%t()
+
+event_goal_count <- data.frame(c(
+  shots%>%
+    filter(event == "goal")%>%
+    count(),
+  shots%>%
+  filter(house_shot == T)%>%
+    filter(event == "goal")%>%
+  count(),
+  shots%>%
+  filter(house_shot == F)%>%
+    filter(event == "goal")%>%
+  count(),
+  shots%>%
+  filter(behind_net_shot == T, event == "goal")%>%
+  count(),
+shots%>%
+  filter(through_middle_shot == T, event == "goal")%>%
+  count(),
+shots%>%
+  filter(one_timer == T, event == "goal")%>%
+  count(),
+shots%>%
+  filter(shot_after_pass == T, event == "goal")%>%
+  count()))%>%t()
+
+descriptive_stats <- data.frame(cbind(event_count, event_goal_count))%>%
+  mutate(shot_percentage = percent(X2 / X1))
+colnames(descriptive_stats) <- c("Event Count", "Event Goal Count", "Shot Percentage")
+rownames(descriptive_stats) <- c("All Shots","House Shots", "Non-House Shots", "behind_net_shot", "through_middle_shot", "one_timer", "shot_after_pass")
+kable(descriptive_stats, format = 'latex')
 }
 
 #GLM for all shots anywhere in offensive zone
@@ -537,7 +604,9 @@ full_glm_1 <-
     family = 'binomial'
   )
 summary(full_glm_1)
-write.csv(as.data.frame(summary(full_glm_1)$coefficients), "full_glm_1.csv")
+rsq(full_glm_1)
+rsq(full_glm_1, adj = TRUE)
+
 full_glm_2 <-
   glm(
     goal ~ one_timer + behind_net_shot + through_middle_shot,
@@ -545,6 +614,9 @@ full_glm_2 <-
     family = 'binomial'
   )
 summary(full_glm_2)
+rsq(full_glm_2)
+rsq(full_glm_2, adj = TRUE)
+
 full_glm_3 <-
   glm(
     goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass,
@@ -552,6 +624,9 @@ full_glm_3 <-
     family = 'binomial'
   )
 summary(full_glm_3)
+rsq(full_glm_3)
+rsq(full_glm_3, adj = TRUE)
+
 full_glm_4 <-
   glm(
     goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass + goal_dist,
@@ -559,6 +634,9 @@ full_glm_4 <-
     family = 'binomial'
   )
 summary(full_glm_4)
+rsq(full_glm_4)
+rsq(full_glm_4, adj = TRUE)
+
 full_glm_5 <-
   glm(
     goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass + goal_dist + shot_angle,
@@ -566,6 +644,9 @@ full_glm_5 <-
     family = 'binomial'
   )
 summary(full_glm_5)
+rsq(full_glm_5)
+rsq(full_glm_5, adj = TRUE)
+
 full_glm <-
   glm(
     goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass + goal_dist + shot_angle + period_seconds +  traffic + advantage,
@@ -573,9 +654,29 @@ full_glm <-
     family = 'binomial'
   )
 summary(full_glm)
-full_glm_results <-
-  round(summary.glm(full_glm)$coefficients, digits = 4)
-full_glm_results
+rsq(full_glm)
+rsq(full_glm, adj = TRUE)
+
+# Extract the coefficients and standard errors
+full_coef <- summary(full_glm)$coefficients[, c(1, 2)]
+
+# Convert coefficients to percent change in probability of scoring a goal
+full_coef[,c(1,2)] <- (plogis(full_coef)-0.5)
+
+# Compute z-values for the transformed coefficients
+full_z_values <- full_coef[, 1] / full_coef[, 2]
+
+# Compute new p-values using the z-test
+full_new_p <- 2 * (1 - pnorm(abs(full_z_values)))
+
+# Add the new coefficients, standard errors, and p-values to the summary table
+full_coef_output <- cbind(rownames(full_glm), percent(full_coef[,1]), percent(full_coef[,2]), round(full_z_values,3), round(full_new_p,3))
+colnames(full_coef_output) <- c("Coefficients (%)", "SE (%)", "Z-value", "p-value")
+
+# Print the summary table
+print(full_coef_output)
+kable(full_coef_output, format = 'latex')
+stargazer(full_coef_output, type = 'latex')
 
 shots$prob <-
   predict(full_glm, newdata = shots, type = "response")
@@ -594,17 +695,8 @@ shots[, c(
 
 #HOUSE ANALYSIS
 {
-  #actual shot percentage of all house shots
-  house_events_shot_pct <- house_events%>%
-  filter(event == "shot" | event == "goal")%>%
-  ungroup()%>%
-  dplyr::summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))))%>%
-  as.numeric()
-
-house_events <- shots_passes %>%
-  filter(house_shot == T | house_pass == T,
-         detail_1 != "Fan",
-         detail_1 != "Wrap Around") %>%
+house_events <- shots %>%
+  filter(house_shot == T | house_pass == T) %>%
   group_by(one_timer,
            shot_after_pass,
            through_middle_shot,
@@ -615,6 +707,13 @@ house_events <- shots_passes %>%
   mutate(avg_shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))) *
            100)
 
+  #actual shot percentage of all house shots
+  house_events_shot_pct <- house_events%>%
+  filter(event == "shot" | event == "goal")%>%
+  ungroup()%>%
+  dplyr::summarize(shot_pct = (sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal"))))%>%
+  as.numeric()
+  
 house_events_summary <- shots_passes %>%
   filter(house_shot == T | house_pass == T) %>%
   group_by(one_timer,
@@ -623,11 +722,17 @@ house_events_summary <- shots_passes %>%
            behind_net_shot) %>%
   dplyr::summarize(shot_pct = round(sum(event == "goal") / sum(sum(event == "shot"), sum(event == "goal")) *
                                100, digits = 2))
+kable(house_events_summary, format = 'latex')
+
 house_glm_null <- 
   glm(goal ~ 0,
     data = house_events,
     family = 'binomial'
   )
+summary(house_glm_null)
+rsq(house_glm_null)
+rsq(house_glm_null, adj = TRUE)
+
 house_glm_1 <-
   glm(
     goal ~ one_timer,
@@ -635,7 +740,9 @@ house_glm_1 <-
     family = 'binomial'
   )
 summary(house_glm_1)
-write.csv(as.data.frame(summary(house_glm_1)$coefficients), "house_glm_1.csv")
+rsq(house_glm_1)
+rsq(house_glm_1, adj = TRUE)
+
 house_glm_2 <-
   glm(
     goal ~ one_timer + behind_net_shot + through_middle_shot,
@@ -643,6 +750,9 @@ house_glm_2 <-
     family = 'binomial'
   )
 summary(house_glm_2)
+rsq(house_glm_2)
+rsq(house_glm_2, adj = TRUE)
+
 house_glm_3 <-
   glm(
     goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass,
@@ -650,6 +760,9 @@ house_glm_3 <-
     family = 'binomial'
   )
 summary(house_glm_3)
+rsq(house_glm_3)
+rsq(house_glm_3, adj = TRUE)
+
 house_glm_4 <-
   glm(
     goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass + goal_dist,
@@ -657,6 +770,9 @@ house_glm_4 <-
     family = 'binomial'
   )
 summary(house_glm_4)
+rsq(house_glm_4)
+rsq(house_glm_4, adj = TRUE)
+
 house_glm_5 <-
   glm(
     goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass + goal_dist + shot_angle,
@@ -664,46 +780,40 @@ house_glm_5 <-
     family = 'binomial'
   )
 summary(house_glm_5)
+rsq(house_glm_5)
+rsq(house_glm_5, adj = TRUE)
+
 house_glm <-
   glm(
     goal ~ one_timer + behind_net_shot + through_middle_shot + shot_after_pass + goal_dist + shot_angle + period_seconds +  traffic + advantage,
     data = house_events,
     family = 'binomial'
   )
+summary(house_glm)
+rsq(house_glm)
+rsq(house_glm, adj = TRUE)
 
-house_summary <- summary(house_glm)$coefficients
-house_percent_change_prob <- house_glm
-house_percent_change_prob$coefficients <- percent_change_prob(house_glm$coefficients)
-house_likelihood_goal <- round(likelihood_goal(house_summary[,1]), digits = 4)
-house_glm_results <-
-  round(summary.glm(house_glm)$coefficients, digits = 4)
-write.csv(house_glm_results, "house_glm_results.csv")
-write2word(house_glm_results, "house_glm_results.doc")
 
-stargazer(house_percent_change_prob, type = "latex", title = "Percent Change Probability of House Logistic Regression Models",
-   dep.var.labels = c("goal"),
-  covariate.labels = c("one_timerTRUE", "behind_net_shotTRUE", "through_middle_shotTRUE", "shot_after_passTRUE", "goal_dist", "shot_angle", "period_seconds,", "trafficTRUE", "advantage"),
-  column.labels = c("Model 1"),
-  out = "house_percent_change_prob.tex")
+# Extract the coefficients and standard errors
+house_coef <- summary(house_glm)$coefficients[, c(1, 2)]
 
-stargazer(house_percent_change_prob, type = "latex", title = "Percent Change Probability of House Logistic Regression Models",
-          align = TRUE,
-          coef = list,
-   dep.var.labels = c("goal"),
-  covariate.labels = c("one_timerTRUE", "behind_net_shotTRUE", "through_middle_shotTRUE", "shot_after_passTRUE", "goal_dist", "shot_angle", "period_seconds,", "trafficTRUE", "advantage"),
-)
+# Convert coefficients to percent change in probability of scoring a goal
+house_coef[,c(1,2)] <- (plogis(house_coef)-0.5)
 
-stargazer(model,
-          type = "latex",
-          title = "Logistic Regression Results",
-          align = TRUE,
-          coef = list(pcp, se, pvalue),
-          covariate.labels = c("Predictor"),
-          dep.var.caption = "Outcome",
-          dep.var.labels.include = FALSE,
-          font.size = "small",
-          single.row = TRUE)
+# Compute z-values for the transformed coefficients
+house_z_values <- house_coef[, 1] / house_coef[, 2]
 
+# Compute new p-values using the z-test
+house_new_p <- 2 * (1 - pnorm(abs(house_z_values)))
+
+# Add the new coefficients, standard errors, and p-values to the summary table
+house_coef_output <- cbind(rownames(house_glm), percent(house_coef[,1]), percent(house_coef[,2]), round(house_z_values,3), round(house_new_p,3))
+colnames(house_coef_output) <- c("Coefficients (%)", "SE (%)", "Z-value", "p-value")
+
+# Print the summary table
+print(house_coef_output)
+kable(house_coef_output, format = 'latex')
+stargazer(house_coef_output, type = 'latex')
 rms::vif(house_glm)
 
 
@@ -727,6 +837,7 @@ house_odds_plot <- forestplot(
   col = fpColors(box = "royalblue", line = "darkblue"),
   title = "Odds Ratios of All Variables\nfor Shots from 'The House'"
 )
+house_odds_plot
 
 # Predict using the model
 house_events$prob <-
@@ -851,10 +962,8 @@ ggplot(house_events, aes(x = goal_dist, y = prob)) +
 #NON-HOUSE EVENT ANALYSIS
 {
   
-non_house_events <- shots_passes %>%
-  filter(house_shot == F & house_pass == F,
-         detail_1 != "Fan",
-         detail_1 != "Wrap Around") %>%
+non_house_events <- shots %>%
+  filter(house_shot == F & house_pass == F) %>%
   group_by(one_timer,
            shot_after_pass,
            through_middle_shot,
@@ -928,10 +1037,27 @@ non_house_glm <-
     family = 'binomial'
   )
 summary(non_house_glm)
-non_house_glm_results <-
-  round(summary.glm(non_house_glm)$coefficients, digits = 4)
-write.csv(non_house_glm_results, "non_house_glm_results.csv")
-write2word(non_house_glm_results, "non_house_glm_results.doc")
+
+# Extract the coefficients and standard errors
+non_house_coef <- summary(non_house_glm)$coefficients[, c(1, 2)]
+
+# Convert coefficients to percent change in probability of scoring a goal
+non_house_coef[,c(1,2)] <- (plogis(non_house_coef)-0.5)
+
+# Compute z-values for the transformed coefficients
+non_house_z_values <- non_house_coef[, 1] / non_house_coef[, 2]
+
+# Compute new p-values using the z-test
+non_house_new_p <- 2 * (1 - pnorm(abs(non_house_z_values)))
+
+# Add the new coefficients, standard errors, and p-values to the summary table
+non_house_coef_output <- cbind(rownames(non_house_glm), percent(non_house_coef[,1]), percent(non_house_coef[,2]), round(non_house_z_values,3), round(non_house_new_p,3))
+colnames(non_house_coef_output) <- c("Coefficients (%)", "SE (%)", "Z-value", "p-value")
+
+# Print the summary table
+print(non_house_coef_output)
+kable(non_house_coef_output, format = 'latex')
+stargazer(non_house_coef_output, type = 'latex')
 
 # Create a data frame with odds ratios and confidence intervals
 non_house_glm_odds <-
@@ -953,6 +1079,7 @@ non_house_odds_plot <- forestplot(
   col = fpColors(box = "royalblue", line = "darkblue"),
   title = "Odds Ratios of All Variables\nfor Shots not from 'The House'"
 )
+non_house_odds_plot
 
 # Predict using the model
 non_house_events$prob <-
@@ -971,6 +1098,7 @@ non_house_events[, c(
   predict(non_house_glm, newdata = non_house_events, type = "terms")
 
 plogis(predict(non_house_glm, newdata = non_house_events, type = "link"))
+
 #total goals scored by each player in the house
 player_non_house_goals <- non_house_events %>%
   filter(event == "goal") %>%
@@ -1050,9 +1178,6 @@ ggplot(non_house_events, aes(x = goal_dist, y = prob)) +
   labs(x = "Goal Distance", y = "Predicted Probability of Goal")
 }
 
-#ODDS RATIOS
-or_plot <- ggarrange(house_odds_plot, non_house_odds_plot, ncol = 2)
-annotate_figure(or_plot, top = text_grob("Odds Ratios from Logistic Regression", size = 20, face = "bold"))
 #VARIABLE IMPORTANCE
 {
 house_impt<- vip(house_glm, geom = 'col', aesthetics = list(fill = "#00BAFF"))+
@@ -1065,6 +1190,7 @@ house_impt<- vip(house_glm, geom = 'col', aesthetics = list(fill = "#00BAFF"))+
     axis.title = element_text(size = 12, face = 'bold'),
     plot.title = element_text(size = 14, face = "bold", hjust = 0.5)
   )
+house_impt
 
 non_house_impt<- vip(non_house_glm, geom = 'col', aesthetics = list(fill = "#00BAFF"))+
   theme_pubr()+
@@ -1114,8 +1240,8 @@ team_one_timer_goals <- shots %>%
   group_by(team)%>%
   dplyr::summarize(one_timer_goals = sum(event == "goal"))
 
-delta_team_one_timer_goals <- cbind(team_one_timer_goals, team_proj_one_timer_goals[,2])%>%
-  mutate(delta = one_timer_goals - proj_one_timer_goals)%>%
+delta_team_one_timer_goals <- cbind(team_one_timer_goals, team_proj_one_timer_goals[,2], games_played_team[,2])%>%
+  mutate(delta = (one_timer_goals - proj_one_timer_goals)/`Games Played`)%>%
   arrange(desc(delta))
 delta_team_one_timer_goals
 
@@ -1128,18 +1254,19 @@ ggplot(
   geom_text(
     aes(label = round(delta, digits = 3)),
     position = position_stack(vjust = 0.5),
-    size = 4.5,
+    size = 7,
+    fontface = 'bold',
     color = case_when(
-      delta_team_one_timer_goals$delta > 0.5 ~ "green",
-      delta_team_one_timer_goals$delta < 0.5 & delta_team_one_timer_goals$delta > -0.5 ~ "black",
-      delta_team_one_timer_goals$delta < -0.5 ~ "red")
+      delta_team_one_timer_goals$delta > 0.2 ~ "green",
+      delta_team_one_timer_goals$delta < 0.2 & delta_team_one_timer_goals$delta > -0.2 ~ "orange",
+      delta_team_one_timer_goals$delta < -0.2 ~ "red")
   ) +
   scale_color_continuous(type = 'viridis') +
   scale_y_continuous(
                      breaks = seq(-5, 5, 1)) +
-  ylab("Difference in Actual vs. Predicted One-Timer Goals") +
+  ylab("Difference in Actual vs. Predicted One-Timer Goals per Game") +
   xlab("Team") +
-  ggtitle("Actual vs. Predicted One-Timer Goals by Team") +
+  ggtitle("Actual vs. Predicted One-Timer Goals per Game by Team") +
   theme_pubr() +
   theme(
     axis.text.x = element_text( size = 10),
@@ -1524,51 +1651,44 @@ one_timer_goals_per_game
 #plotting of all teams shots and goals
 {
 ggsave("team_plays/CAN_2d.jpeg",
-       plot_team_shots_goals('CAN', 'Team Canada', 'Olympic', '1.25'))
-ggsave(
-  "team_plays/RUS_2d.jpeg",
-  plot_team_shots_no_goals('RUS', 'Team Russia', 'Olympic', '0')
-)
+       plot_team_shots_goals('CAN', 'Team Canada', 'Olympic', '1.25', '12')
+       )
+ggsave("team_plays/RUS_2d.jpeg",
+       plot_team_shots_no_goals('RUS', 'Team Russia', 'Olympic', '0', '4')
+       )
 ggsave("team_plays/FIN_2d.jpeg",
-       plot_team_shots_goals('FIN', 'Team Finland', 'Olympic', '1'))
+       plot_team_shots_goals('FIN', 'Team Finland', 'Olympic', '1', '6')
+       )
 ggsave("team_plays/USA_2d.jpeg",
-       plot_team_shots_goals('USA', 'Team USA', 'Olympic', '0.33'))
-ggsave(
-  "team_plays/SWZ_2d.jpeg",
-  plot_team_shots_goals('SWZ', 'Team Switzerland', 'Olympic', '1')
-)
-ggsave(
-  "team_plays/Clarkson_2d.jpeg",
-  plot_team_shots_goals('Clarkson', 'the Clarkson Golden Knights', 'NCAA', '0.5')
-)
-ggsave(
-  "team_plays/St_Lawrence_2d.jpeg",
-  plot_team_shots_goals('St_Lawrence', 'the St. Lawrence Saints', 'NCAA', '0.5')
-)
-ggsave(
-  "team_plays/Boston_2d.jpeg",
-  plot_team_shots_goals('Boston', 'the Boston Pride', 'NWHL', '0.57')
-)
-ggsave(
-  "team_plays/Minnesota_2d.jpeg",
-  plot_team_shots_goals('Minnesota', 'the Minnesota Whitecaps', 'NWHL', '0.25')
-)
-ggsave(
-  "team_plays/Buffalo_2d.jpeg",
-  plot_team_shots_no_goals('Buffalo', 'the Buffalo Beauts', 'NWHL', '0')
-)
-ggsave(
-  "team_plays/Connecticut_2d.jpeg",
-  plot_team_shots_goals('Connecticut', 'the Connecticut Whale', 'NWHL', '0.75')
-)
-ggsave(
-  "team_plays/Toronto_2d.jpeg",
-  plot_team_shots_goals('Toronto', 'the Toronto Six', 'NWHL', '0.33')
-)
-ggsave(
-  "team_plays/Metropolitan_2d.jpeg",
-  plot_team_shots_no_goals('Metropolitan', 'the Metropolitan Riveters', 'NWHL', '0')
-)
+       plot_team_shots_goals('USA', 'Team USA', 'Olympic', '0.33', '9')
+       )
+ggsave("team_plays/SWZ_2d.jpeg",
+       plot_team_shots_goals('SWZ', 'Team Switzerland', 'Olympic', '1', '3')
+       )
+ggsave("team_plays/Clarkson_2d.jpeg", 
+       plot_team_shots_goals('Clarkson', 'the Clarkson Golden Knights', 'NCAA', '0.5', '2')
+       )
+ggsave("team_plays/St_Lawrence_2d.jpeg",
+       plot_team_shots_goals('St_Lawrence', 'the St. Lawrence Saints', 'NCAA', '0.5', '2')
+       )
+ggsave("team_plays/Boston_2d.jpeg",
+       plot_team_shots_goals('Boston', 'the Boston Pride', 'NWHL', '0.57', '7')
+       )
+ggsave("team_plays/Minnesota_2d.jpeg",
+       plot_team_shots_goals('Minnesota', 'the Minnesota Whitecaps', 'NWHL', '0.25', '4')
+       )
+ggsave("team_plays/Buffalo_2d.jpeg",
+       plot_team_shots_no_goals('Buffalo', 'the Buffalo Beauts', 'NWHL', '0', '6')
+       )
+ggsave("team_plays/Connecticut_2d.jpeg",
+       plot_team_shots_goals('Connecticut', 'the Connecticut Whale', 'NWHL', '0.75', '4')
+       )
+ggsave("team_plays/Toronto_2d.jpeg",
+       plot_team_shots_goals('Toronto', 'the Toronto Six', 'NWHL', '0.33', '6')
+       )
+ggsave("team_plays/Metropolitan_2d.jpeg",
+       plot_team_shots_no_goals('Metropolitan', 'the Metropolitan Riveters', 'NWHL', '0', '3')
+       )
 }
 
 #PLOT PREDICITONS

@@ -492,20 +492,19 @@ count(bad_pass)
 coord_shot_pct <- games3 %>%
   filter(event == "shot" | event == "goal") %>%
   group_by(coord_id) %>%
-  summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))
-
+  dplyr::summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))
 
 #Mean Shot Pct by shot type and whether or not shot is a one timer
 mean_shot_type_pct <- games3 %>%
   filter(event == "shot" | event == "goal") %>%
   group_by(detail_1, one_timer) %>%
-  summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))
+  dplyr::summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))
 
 ##Shot percentage by coordinate and shot type
 shot_type_pct <- games3 %>%
   filter(event == "shot" | event == "goal") %>%
   group_by(coord_id, detail_1) %>%
-  summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))%>%
+  dplyr::summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))%>%
   pivot_wider(values_from = shot_pct, names_from = detail_1)%>%
   mutate_all(~ replace_na(., 0))
 
@@ -513,7 +512,7 @@ shot_type_pct <- games3 %>%
 shot_type_pct_2 <- games3 %>%
   filter(event == "shot" | event == "goal") %>%
   group_by(coord_id, detail_1, one_timer) %>%
-  summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))%>%
+  dplyr::summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))%>%
   pivot_wider(values_from = shot_pct, names_from = c(detail_1, one_timer))%>%
   mutate_all(~ replace_na(., 0))
 
@@ -528,7 +527,7 @@ offensive_events <- games3 %>%
 median_shot_pct <- offensive_events %>%
   filter(one_timer == F)%>%
   group_by(coord_id, x_group, y_group) %>%
-  summarize(id_shot_pct = mean(shot_pct)) 
+  dplyr::summarize(id_shot_pct = mean(shot_pct)) 
 
 #all one-timers
 one_timers <- offensive_events %>%
@@ -539,7 +538,7 @@ one_timers <- offensive_events %>%
 #one_timer shot percentage by coordinate id
 one_timer_shot_pct <- one_timers %>%
   group_by(coord_id, x_group, y_group) %>%
-  summarize(id_shot_pct = mean(shot_pct))
+  dplyr::summarize(id_shot_pct = mean(shot_pct))
 
 #merge all shot percentage and one_timer shot percentage
 {
@@ -629,10 +628,7 @@ colnames(pass_value2)[52:54] <-
   c("prev_x_group", "prev_y_group", "prev_all_shot_pct")
 
   #create df of the house polygon
-  the_house <- data.frame(x = c(189, 189, 169, 154, 154, 169),
-                          xend = c(189, 169, 154, 154, 169, 189),
-                          y = c(39.5, 45.5, 64.5, 64.5, 20.5, 20.5),
-                          yend = c(45.5, 64.5, 64.5, 20.5, 20.5, 39.5)) 
+  source("house.R")
   
   #find difference between shot pct at current location and shot pct at previous location
 pass_value2$delta_shot_pct_prev_shot_pct <-
@@ -703,7 +699,7 @@ shots_passes <- cbind(pass_value2, house_shot_df, house_pass_df)
   combo_fn <- function(x){
     y<- x%>%
     filter(event == "shot" | event == "goal")%>%
-    summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T)))) 
+    dplyr::summarize(shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T)))) 
     return(y)
   }
 
@@ -728,7 +724,7 @@ shots_passes <- cbind(pass_value2, house_shot_df, house_pass_df)
 x<- pass_value2%>%
   filter(event == "goal" | event == "shot")%>%
   group_by(one_timer, coord_id)%>%
-  summarize(grouped_shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))%>%
+  dplyr::summarize(grouped_shot_pct = (sum(goal == T) / sum(sum(event == "shot"), sum(goal == T))))%>%
   pivot_wider(values_from = grouped_shot_pct, names_from = one_timer)%>%
   mutate_all(~ replace_na(., 0)) %>%
   mutate(grouped_diff = `TRUE` - `FALSE`)%>%
@@ -1058,9 +1054,9 @@ gg_delta_shot_pct<- plot_half_rink(ggplot(delta_shot_pct)) +
     fill = delta_one_timer_all_shots
   )) + #tile heatmap
   labs(fill = "Difference") +
-  ggtitle("Difference in one-timer and regular shot pct by coordinate") +
+  ggtitle("Difference in One-Timer and Non-One-Timer Shot Percentage") +
   scale_fill_gradientn(
-                       colors = c("red", "white", "green"), limits = c(-.2,.2), labels = percent) 
+                       colors = c("green", "white", "red"), limits = c(-.2,.2), labels = percent) 
   rink_overlay(gg_delta_shot_pct)
 }
 
