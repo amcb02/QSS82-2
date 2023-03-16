@@ -22,8 +22,9 @@ plot_half_rink(ggplot())+
     annotate("text", x = 204, y = 2, label = "0", fontface = 'bold', size = 4)+
     annotate("text", x = 204, y = 83, label = "85", fontface = 'bold', size = 4)+
     annotate("text", x = 204, y = 42.5, label = "Y-Coordinate", fontface = 'bold', size = 5, angle = -90)+
-    annotate("text", x = 139, y = 44, label = "Midline of Ice (y=42.5)", fontface = 'bold', size = 2.5)+
-    annotate("text", x = 162, y = 66, label = "'The House'", fontface = 'bold', size = 2.5)+
+    annotate("text", x = 140, y = 44, label = "Midline of Ice (y=42.5)", fontface = 'bold', size = 3.5)+
+    annotate("text", x = 162, y = 66, label = "'The House'", fontface = 'bold', size = 3.5)+
+      annotate("text", x = 195, y = 42.5, label = "Behind the Net", fontface = 'bold', angle = -90, size = 3.5)+
     annotate("text", x = 160, y = 88, label = "Offensive Zone", fontface = 'bold', size = 6)
   
       

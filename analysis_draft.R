@@ -24,6 +24,7 @@
   library(rsq)
   library(vip)
   library(stargazer)
+  library(knitr)
   library(marginaleffects)
 }
 
@@ -408,6 +409,19 @@
       )),
       winner = as.factor(ifelse(
         date == "2018-10-19", paste(home_team), paste(winner) #game ended in tie but ST. Lawrence was the winner
+      )),
+      loser = as.factor(ifelse(
+        #find winner of the game
+        home_goals > away_goals,
+        paste(away_team),
+        ifelse(
+          away_goals > home_goals,
+          paste(home_team),
+          ifelse(home_goals == away_goals, "tie", "error")
+        )
+      )),
+      loser = as.factor(ifelse(
+        date == "2018-10-19", paste(away_team), paste(loser) #game ended in tie but ST. Lawrence was the winner
       ))) %>%
       mutate(final_home_score = home_goals,
              final_away_score = away_goals) %>%
@@ -416,6 +430,7 @@
              home_team,
              away_team,
              winner,
+             loser,
              final_home_score,
              final_away_score)
     }
@@ -535,6 +550,29 @@ league_games <- shots%>%
 colnames(league_games) <- c("league", "Games Played")
 kable(league_games, format = 'latex')
 
+#team records
+winners <- shots%>%
+  group_by(winner)%>%
+  distinct(gameID)%>%
+  count()
+
+ties <- shots%>%
+  filter(winner == "tie")%>%
+  group_by(team)%>%
+  distinct(gameID)%>%
+  count()
+
+losses <- shots%>%
+  group_by(loser)%>%
+  distinct(gameID)%>%
+  count()
+
+record <- full_join(winners, losses, by = c('winner' = 'loser'))
+record <- left_join(record, ties, by = c("winner" = "team"))%>%
+    mutate_all( ~ replace_na(., 0))
+colnames(record) <- c("team", "win", "loss", "tie")
+  kable(record, format = 'latex')
+  
 #overall shot percentage of all shots 
 full_shot_pct <- shots%>%
   ungroup()%>%
@@ -657,6 +695,7 @@ summary(full_glm)
 rsq(full_glm)
 rsq(full_glm, adj = TRUE)
 
+vip(full_glm)
 # Extract the coefficients and standard errors
 full_coef <- summary(full_glm)$coefficients[, c(1, 2)]
 
@@ -1180,11 +1219,23 @@ ggplot(non_house_events, aes(x = goal_dist, y = prob)) +
 
 #VARIABLE IMPORTANCE
 {
+  full_impt<- vip(full_glm, geom = 'col', include_type = TRUE, aesthetics = list(fill = "#00BAFF"))+
+  theme_pubr()+
+  ylab("Permutation-based Variable Importance") +
+  xlab("Variable") +
+  ggtitle("All Events Variable Importance")+
+    theme(
+    axis.text = element_text(size = 10, face = 'bold'),
+    axis.title = element_text(size = 12, face = 'bold'),
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5)
+  )
+full_impt
+
 house_impt<- vip(house_glm, geom = 'col', aesthetics = list(fill = "#00BAFF"))+
   theme_pubr()+
   ylab("Permutation-based Variable Importance") +
   xlab("Variable") +
-  ggtitle("Inside 'The House'")+
+  ggtitle("Inside 'The House' Variable Importance")+
     theme(
     axis.text = element_text(size = 10, face = 'bold'),
     axis.title = element_text(size = 12, face = 'bold'),
@@ -1196,7 +1247,7 @@ non_house_impt<- vip(non_house_glm, geom = 'col', aesthetics = list(fill = "#00B
   theme_pubr()+
   ylab("Permutation-based Variable Importance") +
   xlab("Variable") +
-  ggtitle("Outside 'The House'")+
+  ggtitle("Outside 'The House' Variable Importance")+
     theme(
     axis.text = element_text(size = 10, face = 'bold'),
     axis.title = element_text(size = 12, face = 'bold'),
@@ -1240,11 +1291,18 @@ team_one_timer_goals <- shots %>%
   group_by(team)%>%
   dplyr::summarize(one_timer_goals = sum(event == "goal"))
 
-delta_team_one_timer_goals <- cbind(team_one_timer_goals, team_proj_one_timer_goals[,2], games_played_team[,2])%>%
+team_one_timer_shots <- shots%>%
+  filter(one_timer == T)%>%
+  group_by(team)%>%
+  count()
+
+delta_team_one_timer_goals <- cbind(team_one_timer_goals, team_proj_one_timer_goals[,2], games_played_team[,2], team_one_timer_shots[,2])%>%
   mutate(delta = (one_timer_goals - proj_one_timer_goals)/`Games Played`)%>%
+  mutate(shots_per_game = n/`Games Played`)%>%
   arrange(desc(delta))
 delta_team_one_timer_goals
 
+#plot actual vs. predicted one-timer goals by team
 ggplot(
   delta_team_one_timer_goals,
   aes(x = reorder(team, delta), y = delta, fill = delta)
@@ -1267,6 +1325,34 @@ ggplot(
   ylab("Difference in Actual vs. Predicted One-Timer Goals per Game") +
   xlab("Team") +
   ggtitle("Actual vs. Predicted One-Timer Goals per Game by Team") +
+  theme_pubr() +
+  theme(
+    axis.text.x = element_text( size = 10),
+    legend.position = 'none',
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5)
+  )
+#plot one-timer shots by team
+ggplot(
+  delta_team_one_timer_goals,
+  aes(x = reorder(team, shots_per_game), y = shots_per_game, fill = shots_per_game)
+) +
+  coord_flip()+
+  geom_bar(stat = "identity") +
+  geom_text(
+    aes(label = round(shots_per_game, digits = 3)),
+    position = position_stack(vjust = 0.5),
+    size = 7,
+    fontface = 'bold',
+    color = case_when(
+      delta_team_one_timer_goals$shots_per_game > 8 ~ "green",
+      delta_team_one_timer_goals$shots_per_game < 8 & delta_team_one_timer_goals$shots_per_game > 6 ~ "orange",
+      delta_team_one_timer_goals$shots_per_game < 6 ~ "red")
+  ) +
+  scale_color_continuous(type = 'viridis') +
+  #scale_y_continuous(breaks = seq(-5, 5, 1)) +
+  ylab("One-Timer Shots per Game") +
+  xlab("Team") +
+  ggtitle("One-Timer Shots per Game by Team") +
   theme_pubr() +
   theme(
     axis.text.x = element_text( size = 10),
@@ -1302,6 +1388,130 @@ ggplot(
   )
   }
 
+
+
+#one-timer goals by team
+{
+team_one_timers <- shots_passes%>% 
+   ungroup()%>%
+  group_by(team, gp_team)%>%
+  filter((event == "goal") & one_timer == T)%>%
+  count()%>%
+  mutate(goals_game = n/gp_team)%>%
+  arrange(desc(goals_game))
+
+one_timer_goals_per_game <- left_join(shots_passes, team_one_timers, by = 'team')%>%
+  mutate_at(c('n', 'goals_game'), ~replace_na(., 0))%>%
+  dplyr::select(team, n, gp_team.x, goals_game)
+
+colnames(one_timer_goals_per_game) <- c('team', 'one_timer_goals_by_team', 'gp_by_team', 'goals_per_game')
+
+one_timer_goals_per_game <- distinct(one_timer_goals_per_game)%>%
+  arrange(desc(goals_per_game))
+one_timer_goals_per_game
+}
+
+#plotting of all teams shots and goals
+{
+ggsave("team_plays/CAN_2d.jpeg",
+       plot_team_shots_goals('CAN', 'Team Canada', 'Olympic', '1.25', '12')
+       )
+ggsave("team_plays/RUS_2d.jpeg",
+       plot_team_shots_no_goals('RUS', 'Team Russia', 'Olympic', '0', '4')
+       )
+ggsave("team_plays/FIN_2d.jpeg",
+       plot_team_shots_goals('FIN', 'Team Finland', 'Olympic', '1', '6')
+       )
+ggsave("team_plays/USA_2d.jpeg",
+       plot_team_shots_goals('USA', 'Team USA', 'Olympic', '0.33', '9')
+       )
+ggsave("team_plays/SWZ_2d.jpeg",
+       plot_team_shots_goals('SWZ', 'Team Switzerland', 'Olympic', '1', '3')
+       )
+ggsave("team_plays/Clarkson_2d.jpeg", 
+       plot_team_shots_goals('Clarkson', 'the Clarkson Golden Knights', 'NCAA', '0.5', '2')
+       )
+ggsave("team_plays/St_Lawrence_2d.jpeg",
+       plot_team_shots_goals('St_Lawrence', 'the St. Lawrence Saints', 'NCAA', '0.5', '2')
+       )
+ggsave("team_plays/Boston_2d.jpeg",
+       plot_team_shots_goals('Boston', 'the Boston Pride', 'NWHL', '0.57', '7')
+       )
+ggsave("team_plays/Minnesota_2d.jpeg",
+       plot_team_shots_goals('Minnesota', 'the Minnesota Whitecaps', 'NWHL', '0.25', '4')
+       )
+ggsave("team_plays/Buffalo_2d.jpeg",
+       plot_team_shots_no_goals('Buffalo', 'the Buffalo Beauts', 'NWHL', '0', '6')
+       )
+ggsave("team_plays/Connecticut_2d.jpeg",
+       plot_team_shots_goals('Connecticut', 'the Connecticut Whale', 'NWHL', '0.75', '4')
+       )
+ggsave("team_plays/Toronto_2d.jpeg",
+       plot_team_shots_goals('Toronto', 'the Toronto Six', 'NWHL', '0.33', '6')
+       )
+ggsave("team_plays/Metropolitan_2d.jpeg",
+       plot_team_shots_no_goals('Metropolitan', 'the Metropolitan Riveters', 'NWHL', '0', '3')
+       )
+}
+
+#PLOT PREDICITONS
+{
+plot_predictions(house_glm, condition = c( 'goal_dist', 'one_timer'))+
+  theme_minimal()+
+    labs(color = "One-Timer")+
+    scale_color_manual(values = c(`TRUE` = '#00BE00',
+                                `FALSE` = 'red'))+
+    scale_fill_manual(values = c(`TRUE` = '#00BE00',
+                                `FALSE` = 'red'), guide = FALSE)+
+  xlab('Goal Distance (Ft)')+
+  ylab('Probability of Scoring a Goal')+
+  scale_y_continuous(limits = c(0, 0.5), labels = percent_format(), breaks = c(0, seq(0,.5, by = 0.05)))+
+  ggtitle("Probability of Scoring a Goal for Shots inside\n'The House' based on Goal Distance and One-Timer")+
+ scale_x_continuous(breaks = seq(0,80, by = 10))+
+  theme_pubr(legend = 'bottom')+
+  labs_pubr()+
+    theme(plot.title = element_text(size = 14, hjust = 0.5, face = 'bold'),
+          panel.grid = element_line(size = 0.1, color = 'grey30'))
+
+
+plot_predictions(non_house_glm, condition = c( 'goal_dist', 'one_timer'))+
+    labs(color = "One-Timer",
+         caption = "95% confidence intervals")+
+    scale_color_manual(values = c(`TRUE` = '#00BE00',
+                                `FALSE` = 'red'))+
+    scale_fill_manual(values = c(`TRUE` = '#00BE00',
+                                `FALSE` = 'red'), guide = FALSE)+
+  xlab('Goal Distance (Ft)')+
+  ylab('Probability of Scoring a Goal')+
+  scale_y_continuous(limits = c(0, 0.5), labels = percent_format(), breaks = c(0, seq(0,.5, by = 0.05)))+
+  ggtitle("Probability of Scoring a Goal for Shots outside\n'The House' based on Goal Distance and One-Timer")+
+  scale_x_continuous(breaks = c(0, seq(0,80, by = 10)))+
+  theme_pubr(legend = 'bottom')+
+  labs_pubr()+
+    theme(plot.title = element_text(size = 14, hjust = 0.5, face = 'bold'),
+          panel.grid = element_line(size = 0.1, color = 'grey30'))
+
+
+plot_predictions(full_glm, condition = c( 'goal_dist', 'one_timer'))+
+    theme_pubr(legend = "bottom")+
+  labs(color = "One-Timer")+
+  scale_color_manual(values = c(`TRUE` = '#00BE00',
+                                `FALSE` = 'red'))+
+  scale_fill_manual(values = c(`TRUE` = '#00BE00',
+                                `FALSE` = 'red'), guide = FALSE)+
+  xlab('Goal Distance (Ft)')+
+  ylab('Probability of Scoring a Goal')+
+  ylim(0, 0.5)+
+  scale_y_continuous(limits = c(0, 0.5), labels = percent_format(), breaks = c(0, seq(0,.5, by = 0.05)))+
+  ggtitle("Probability of Scoring a Goal for all Shots\nbased on Goal Distance and One-Timer")+
+  scale_x_continuous(breaks = seq(0,80, by = 10))+
+  theme_pubr(legend = 'bottom')+
+  labs_pubr()+
+    theme(plot.title = element_text(size = 14, hjust = 0.5, face = 'bold'),
+          panel.grid = element_line(size = 0.1, color = 'grey30'))
+}
+
+# UNUSED PLOTS
 #PASS SEGMENT AND SHOT/GOAL POINT PLOTS
 {
 #behind_net == T, house == T, through_middle = T&F
@@ -1625,125 +1835,4 @@ gg_no_behind_house_no_middle_plays <- plot_half_rink(ggplot()) +
   ggtitle("All Passes From not Behind the Net to 'The House'\nwith all passes not through midline")
 
 rink_overlay(gg_no_behind_house_no_middle_plays)
-}
-
-#one-timer goals by team
-{
-team_one_timers <- shots_passes%>% 
-   ungroup()%>%
-  group_by(team, gp_team)%>%
-  filter((event == "goal") & one_timer == T)%>%
-  count()%>%
-  mutate(goals_game = n/gp_team)%>%
-  arrange(desc(goals_game))
-
-one_timer_goals_per_game <- left_join(shots_passes, team_one_timers, by = 'team')%>%
-  mutate_at(c('n', 'goals_game'), ~replace_na(., 0))%>%
-  dplyr::select(team, n, gp_team.x, goals_game)
-
-colnames(one_timer_goals_per_game) <- c('team', 'one_timer_goals_by_team', 'gp_by_team', 'goals_per_game')
-
-one_timer_goals_per_game <- distinct(one_timer_goals_per_game)%>%
-  arrange(desc(goals_per_game))
-one_timer_goals_per_game
-}
-
-#plotting of all teams shots and goals
-{
-ggsave("team_plays/CAN_2d.jpeg",
-       plot_team_shots_goals('CAN', 'Team Canada', 'Olympic', '1.25', '12')
-       )
-ggsave("team_plays/RUS_2d.jpeg",
-       plot_team_shots_no_goals('RUS', 'Team Russia', 'Olympic', '0', '4')
-       )
-ggsave("team_plays/FIN_2d.jpeg",
-       plot_team_shots_goals('FIN', 'Team Finland', 'Olympic', '1', '6')
-       )
-ggsave("team_plays/USA_2d.jpeg",
-       plot_team_shots_goals('USA', 'Team USA', 'Olympic', '0.33', '9')
-       )
-ggsave("team_plays/SWZ_2d.jpeg",
-       plot_team_shots_goals('SWZ', 'Team Switzerland', 'Olympic', '1', '3')
-       )
-ggsave("team_plays/Clarkson_2d.jpeg", 
-       plot_team_shots_goals('Clarkson', 'the Clarkson Golden Knights', 'NCAA', '0.5', '2')
-       )
-ggsave("team_plays/St_Lawrence_2d.jpeg",
-       plot_team_shots_goals('St_Lawrence', 'the St. Lawrence Saints', 'NCAA', '0.5', '2')
-       )
-ggsave("team_plays/Boston_2d.jpeg",
-       plot_team_shots_goals('Boston', 'the Boston Pride', 'NWHL', '0.57', '7')
-       )
-ggsave("team_plays/Minnesota_2d.jpeg",
-       plot_team_shots_goals('Minnesota', 'the Minnesota Whitecaps', 'NWHL', '0.25', '4')
-       )
-ggsave("team_plays/Buffalo_2d.jpeg",
-       plot_team_shots_no_goals('Buffalo', 'the Buffalo Beauts', 'NWHL', '0', '6')
-       )
-ggsave("team_plays/Connecticut_2d.jpeg",
-       plot_team_shots_goals('Connecticut', 'the Connecticut Whale', 'NWHL', '0.75', '4')
-       )
-ggsave("team_plays/Toronto_2d.jpeg",
-       plot_team_shots_goals('Toronto', 'the Toronto Six', 'NWHL', '0.33', '6')
-       )
-ggsave("team_plays/Metropolitan_2d.jpeg",
-       plot_team_shots_no_goals('Metropolitan', 'the Metropolitan Riveters', 'NWHL', '0', '3')
-       )
-}
-
-#PLOT PREDICITONS
-{
-plot_predictions(house_glm, condition = c( 'goal_dist', 'one_timer'))+
-  theme_minimal()+
-    labs(color = "One-Timer")+
-    scale_color_manual(values = c(`TRUE` = '#00BE00',
-                                `FALSE` = 'red'))+
-    scale_fill_manual(values = c(`TRUE` = '#00BE00',
-                                `FALSE` = 'red'), guide = FALSE)+
-  xlab('Goal Distance (Ft)')+
-  ylab('Probability of Scoring a Goal')+
-  scale_y_continuous(limits = c(0, 0.5), labels = percent_format(), breaks = c(0, seq(0,.5, by = 0.05)))+
-  ggtitle("Probability of Scoring a Goal for Shots inside\n'The House' based on Goal Distance and One-Timer")+
- scale_x_continuous(breaks = seq(0,80, by = 10))+
-  theme_pubr(legend = 'bottom')+
-  labs_pubr()+
-    theme(plot.title = element_text(size = 14, hjust = 0.5, face = 'bold'),
-          panel.grid = element_line(size = 0.1, color = 'grey30'))
-
-
-plot_predictions(non_house_glm, condition = c( 'goal_dist', 'one_timer'))+
-    labs(color = "One-Timer",
-         caption = "95% confidence intervals")+
-    scale_color_manual(values = c(`TRUE` = '#00BE00',
-                                `FALSE` = 'red'))+
-    scale_fill_manual(values = c(`TRUE` = '#00BE00',
-                                `FALSE` = 'red'), guide = FALSE)+
-  xlab('Goal Distance (Ft)')+
-  ylab('Probability of Scoring a Goal')+
-  scale_y_continuous(limits = c(0, 0.5), labels = percent_format(), breaks = c(0, seq(0,.5, by = 0.05)))+
-  ggtitle("Probability of Scoring a Goal for Shots outside\n'The House' based on Goal Distance and One-Timer")+
-  scale_x_continuous(breaks = c(0, seq(0,80, by = 10)))+
-  theme_pubr(legend = 'bottom')+
-  labs_pubr()+
-    theme(plot.title = element_text(size = 14, hjust = 0.5, face = 'bold'),
-          panel.grid = element_line(size = 0.1, color = 'grey30'))
-
-
-plot_predictions(full_glm, condition = c( 'goal_dist', 'one_timer'))+
-    theme_pubr(legend = "bottom")+
-  labs(color = "One-Timer")+
-  scale_color_manual(values = c(`TRUE` = '#00BE00',
-                                `FALSE` = 'red'))+
-  scale_fill_manual(values = c(`TRUE` = '#00BE00',
-                                `FALSE` = 'red'), guide = FALSE)+
-  xlab('Goal Distance (Ft)')+
-  ylab('Probability of Scoring a Goal')+
-  ylim(0, 0.5)+
-  scale_y_continuous(limits = c(0, 0.5), labels = percent_format(), breaks = c(0, seq(0,.5, by = 0.05)))+
-  ggtitle("Probability of Scoring a Goal for all Shots\nbased on Goal Distance and One-Timer")+
-  scale_x_continuous(breaks = seq(0,80, by = 10))+
-  theme_pubr(legend = 'bottom')+
-  labs_pubr()+
-    theme(plot.title = element_text(size = 14, hjust = 0.5, face = 'bold'),
-          panel.grid = element_line(size = 0.1, color = 'grey30'))
 }
